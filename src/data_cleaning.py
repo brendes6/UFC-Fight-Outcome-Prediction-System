@@ -195,8 +195,8 @@ def calculate_metrics(df, fighter_specific=False):
         df.loc[(df["Winner"] == "Blue") & (df["Finish"] == "DEC"), "categorical_outcome"] = 5
         
         df["winner_number"] = 0
-        df.loc[(df["Winner"] == "Red"), "winner_number"] = 1
-        df.loc[(df["Winner"] == "Blue"), "winner_number"] = 2
+        df.loc[(df["Winner"] == "Red"), "winner_number"] = 0
+        df.loc[(df["Winner"] == "Blue"), "winner_number"] = 1
 
     return df
 

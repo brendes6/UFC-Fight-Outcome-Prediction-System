@@ -2,7 +2,7 @@ from sklearn.preprocessing import StandardScaler
 import joblib
 
 
-def get_X_y(df, prediction=False, known_odds=False):
+def get_X_y(df, prediction=False, known_odds=False, predicting_winner = False):
 
     # Final features to pass into model
     final_features = [
@@ -18,7 +18,7 @@ def get_X_y(df, prediction=False, known_odds=False):
 
     # If known odds, add odds features
     if known_odds:
-        final_features.extend(["RedOdds", "BlueOdds", "RedDecOdds", "BlueDecOdds", "RSubOdds", "BSubOdds", "RKOOdds", "BKOOdds"])
+        final_features.extend(["RedOdds", "BlueOdds"])
 
 
         X = df[final_features].copy()
@@ -28,7 +28,10 @@ def get_X_y(df, prediction=False, known_odds=False):
         X_scaled = scaler.fit_transform(X)
         joblib.dump((scaler, final_features), "../Models/Known_Odds/scaler.pkl")
         if not prediction:
-            y = df["categorical_outcome"].values
+            if predicting_winner:
+                y = df["winner_number"].values
+            else:
+                y = df["categorical_outcome"].values
             return X_scaled, y
         else:
             return X_scaled
@@ -40,7 +43,12 @@ def get_X_y(df, prediction=False, known_odds=False):
         X_scaled = scaler.fit_transform(X)
         joblib.dump((scaler, final_features), "../Models/Unknown_Odds/scaler.pkl")
         if not prediction:
-            y = df["categorical_outcome"].values
+            if predicting_winner:
+                y = df["winner_number"].values
+            else:
+                y = df["categorical_outcome"].values
             return X_scaled, y
         else:
             return X_scaled
+        
+        

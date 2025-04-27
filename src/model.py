@@ -165,6 +165,27 @@ def predict(model, features):
 
     return probabilities
 
+def build_models(known_odds, predicting_winner, models_needed, threshold, save_path, output_size):
+    # Get data specific to known odds or unknown odds
+    df = get_clean_data()
+    X, y = get_X_y(df, known_odds=known_odds, predicting_winner=predicting_winner)
+
+    i = 0
+    while i < models_needed:
+        # Stratified K-Fold Cross Validation
+        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=np.random.randint(0, 1000))
+        for train_idx, val_idx in skf.split(X, y):
+            X_train, X_val = X[train_idx], X[val_idx]
+            y_train, y_val = y[train_idx], y[val_idx]
+            model = build_model(X_train.shape[1], output_size)
+            model, val_acc = train_model(model, X_train, y_train, X_val, y_val, threshold)
+
+            # Save model if it has >threshold accuracy
+            if val_acc > threshold:
+                torch.save(model.state_dict(), f"{save_path}/ufc_model_{i}.pth")
+                i += 1
+                break
+
 
 def main():
 
@@ -173,56 +194,10 @@ def main():
     if overwrite != "y":
         return
     
-    # Get data for unknown odds dataset
-    df1 = get_clean_data()
-    X1, y1 = get_X_y(df1, known_odds=False)
-    
-    # We want 6 models with >39% accuracy
-    models_needed = 6
-    threshold = 39
-
-    i = 0
-    while i < models_needed:
-        k = 5
-
-        # Stratified K-Fold Cross Validation
-        skf = StratifiedKFold(n_splits=k, shuffle=True, random_state=np.random.randint(0, 1000))
-        accuracies = []
-        for fold, (train_idx, val_idx) in enumerate(skf.split(X1, y1)):
-            X1_train, X1_val = X1[train_idx], X1[val_idx]
-            y1_train, y1_val = y1[train_idx], y1[val_idx]
-            model = build_model(X1_train.shape[1], 6)
-            model, val_acc = train_model(model, X1_train, y1_train, X1_val, y1_val, 40)
-            accuracies.append(val_acc)
-
-            # If model has >39% accuracy, save the model
-            if val_acc > threshold:
-                torch.save(model.state_dict(), f"../Models/Unknown_Odds/ufc_model_{i}.pth")
-                i += 1
-                break
-        
-    # Get data for known odds dataset
-    df2 = get_clean_data()
-    X2, y2 = get_X_y(df2, known_odds=True)
-
-    # We want 6 models with >41.5% accuracy
-    models_needed = 6
-    threshold = 41.5
-
-    i = 0
-    while i < models_needed:
-        k = 5
-        skf = StratifiedKFold(n_splits=k, shuffle=True, random_state=np.random.randint(0, 1000))
-        for fold, (train_idx, val_idx) in enumerate(skf.split(X2, y2)):
-            X2_train, X2_val = X2[train_idx], X2[val_idx]
-            y2_train, y2_val = y2[train_idx], y2[val_idx]
-            model = build_model(X2_train.shape[1], 6)
-            model, val_acc = train_model(model, X2_train, y2_train, X2_val, y2_val, 41.5)
-        
-            if val_acc > threshold:
-                torch.save(model.state_dict(), f"../Models/Known_Odds/ufc_model_{i}.pth")
-                i += 1
-                break
+    # build_models(False, False, 6, 40, "../Models/Unknown_Odds", 6)
+    # build_models(True, False, 6, 41.5, "../Models/Known_Odds", 6)
+    # build_models(False, True, 6, 70, "../Models/Predicting_Winner", 2)
+    build_models(True, True, 6, 72, "../Models/Predicting_Winner_Odds", 2)
 
         
 
