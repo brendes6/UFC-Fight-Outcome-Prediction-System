@@ -1,6 +1,7 @@
 import requests
+import streamlit as st
 
-API_KEY = "d21699bfa8f4c7c1a94bb001a84f7c03"
+API_KEY = st.secrets["API_KEY"]
 
 
 def get_odds(fighter1, fighter2):
