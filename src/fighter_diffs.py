@@ -1,5 +1,6 @@
 import pandas as pd
 from data_cleaning import calculate_metrics, get_data_points
+import os
 
 def extract_fighter_stats():
     data = pd.read_csv("../Data/Cleaned/ufc-clean.csv")
@@ -53,7 +54,10 @@ def check_valid_fighter(fighter):
 
 
 def two_fighter_stats(fighter1, fighter2):
-    data = pd.read_csv("../Data/Cleaned/fighter-stats.csv")
+    current_script_dir = os.path.dirname(__file__)
+    data_relative_path = os.path.join(current_script_dir, "..", "Data", "Cleaned", "fighter-stats.csv")
+
+    data = pd.read_csv(data_relative_path)
 
     fighter1_data = data[data["Fighter"] == fighter1]
     fighter2_data = data[data["Fighter"] == fighter2]
