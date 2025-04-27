@@ -32,11 +32,18 @@ python src/fighter_predictions.py
 ```
 
 ### Web Interface
-Start the web application:
-```bash
-python src/app.py
-```
-Then open your browser to the provided local URL (typically http://127.0.0.1:5000)
+You can access the application in two ways:
+
+1. **Local Deployment**
+   Start the web application:
+   ```bash
+   python src/app.py
+   ```
+   Then open your browser to the provided local URL (typically http://127.0.0.1:5000)
+
+2. **Web Deployment**
+   The application is deployed using Streamlit and can be accessed at:
+   https://ufc-fight-outcome-prediction-system-af9azviwjgntmxb2wkcv8b.streamlit.app/
 
 ## Dependencies
 
