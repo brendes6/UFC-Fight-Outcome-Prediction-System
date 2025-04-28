@@ -18,30 +18,30 @@ def odds_conversion(predictions, from_type="decimal", for_prediction=False):
         if from_type == "decimal":
             if prediction >= 2.0:
                 if for_prediction:
-                    odds.append(int((prediction - 1) * 100))
+                    odds.append((int((prediction - 1) * 100) // 10) * 10)
                 else:
-                    odds.append(f"+{int((prediction - 1) * 100):.0f}")
+                    odds.append(f"+{(int((prediction - 1) * 100) // 10) * 10:.0f}")
             else:
                 if for_prediction:
-                    odds.append(int((-100) / (prediction - 1)))
+                    odds.append((int((-100) / (prediction - 1)) // 10) * 10)
                 else:
-                    odds.append(f"-{int((-100) / (prediction - 1)):.0f}")
+                    odds.append(f"-{(int((-100) / (prediction - 1)) // 10) * 10:.0f}")
         elif from_type == "percentage":
             if prediction == 0.5:
                 if for_prediction:
                     odds.append(100)
                 else:
                     odds.append("+100")
-            if prediction < 0.5:
+            elif prediction < 0.5:
                 if for_prediction:
-                    odds.append(int(((1 - prediction) / prediction) * 100))
+                    odds.append((int(((1 - prediction) / prediction) * 100) // 10) * 10)
                 else:
-                    odds.append(f"+{((1 - prediction) / prediction) * 100:.0f}")
+                    odds.append(f"+{(int(((1 - prediction) / prediction) * 100) // 10) * 10:.0f}")
             else:
                 if for_prediction:
-                    odds.append(int((-100) / (prediction - 1)))
+                    odds.append((int((-prediction / (1 - prediction)) * 100) // 10) * 10)
                 else:
-                    odds.append(f"-{int((-100) / (prediction - 1)):.0f}")
+                    odds.append(f"-{(int((-prediction / (1 - prediction)) * 100) // 10) * 10:.0f}")
 
     return odds
 
