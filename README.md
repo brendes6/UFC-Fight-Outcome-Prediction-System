@@ -46,12 +46,21 @@ ufc-fight-outcome-prediction-system/
 │    ├── fighter_predictions.py   # Prediction logic (model loading and odds handling)
 │    ├── model.py                 # Neural network architecture and training functions
 │    ├── feature_engineering.py   # Feature creation and transformation
-│    └── fighter_data_utils.py    # Fighter filtering by gender and weight class
+│    ├── fighter_diffs.py         # Get individual fighter stats and prepare for retreival from frontend
+|    ├── get_odds.py              # Pulling odds from API
+|    └── data_cleaning.py         # Cleaning data for model training + individual stat retreival
 ├── models/
 │    ├── Known_Odds/              # Models trained with odds
 │    ├── Unknown_Odds/            # Models trained without odds
 │    ├── Predicting_Winner/       # Winner models (no odds)
-│    ├── Predicting_Winner_Odds/  # Winner models (with odds)
+│    └──Predicting_Winner_Odds/  # Winner models (with odds)
+├── Data/
+│    ├── Raw/                    # Original UFC data
+│    │   ├── ufc-master.csv      # Main UFC fight history dataset
+│    │   └── defense_data.csv    # Fighter defensive statistics
+│    └── Cleaned/                # Cleaned data for model training
+│        ├── fighter_stats.csv   # Individual fighter statistics
+│        └── ufc-clean.csv       # Cleaned and processed fight data
 ├── requirements.txt
 ├── README.md
 ```
