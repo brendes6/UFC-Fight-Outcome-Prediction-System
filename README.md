@@ -1,51 +1,66 @@
-# UFC Fight Outcome Prediction System
+#UFC Fight Outcome Prediction System
 
-A machine learning system that predicts UFC fight outcomes using fighter statistics and historical data. The system includes both a Python interface and a web application for making predictions.
 
-## Project Structure
+##Project Overview
 
-- `src/`: Contains the main Python source code
-  - `data_cleaning.py`: Data preprocessing and cleaning
-  - `feature_engineering.py`: Feature extraction and transformation
-  - `model.py`: Neural network model implementation
-  - `fighter_diffs.py`: Fighter statistics comparison
-  - `fighter_predictions.py`: Main prediction interface
-  - `get_odds.py`: UFC odds retrieval functionality
-  - `app.py`: Web application interface
-- `Models/`: Trained model files
-- `Data/`: UFC fight data
+This project builds a machine learning platform to predict UFC fight outcomes using fighter statistics, historical fight results, and live betting odds.
+The web app allows users to:
+-Select gender and weight class
+-Choose two valid fighters
+-Predict the fight winner, outcome probabilities, and expected betting odds
 
-## Installation
+Predictions are generated in real-time through an ensemble of neural network models.
 
-1. Clone the repository
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+##Key Features
 
-## Usage
+-Winner Prediction: Predicts the overall fight winner with confidence percentage.
+-Fight Outcome Prediction: Predicts probabilities for KO/TKO, Submission, or Decision for each fighter.
+-Live Odds Integration: Incorporates current moneyline odds when available.
+-Dynamic Fighter Selection: Filters fighters by gender and weight class for valid matchups.
+-Responsive Web App: Built with Streamlit for fast interaction and real-time updates.
 
-### Python Interface
-Run predictions directly using the Python interface:
-```bash
-python src/fighter_predictions.py
-```
 
-### Web Interface
-You can access the application in two ways:
+##Machine Learning Details
 
-1. **Local Deployment**
-   Start the web application:
-   ```bash
-   python src/app.py
-   ```
-   Then open your browser to the provided local URL (typically http://127.0.0.1:5000)
+-Models: Ensembles of 6 neural networks per task (outcome prediction and winner prediction)
+-Training: Stratified cross-validation and early stopping based on validation accuracy
+-Validation Accuracy:
+  -Fight Outcome (6-class): 40–42%
+  -Winner Prediction (binary): 70–71%
+-Features: Over 50 engineered features based on:
+  -Striking and grappling statistics
+  -Submission attempt rates
+  -Historical win/loss data
+  -ELO ratings
+  -Betting market data
 
-2. **Web Deployment**
-   The application is deployed using Streamlit and can be accessed at:
-   https://ufc-fight-outcome-prediction-system-af9azviwjgntmxb2wkcv8b.streamlit.app/
 
-## Dependencies
+##Live Demo
+https://ufc-fight-outcome-prediction-system-af9azviwjgntmxb2wkcv8b.streamlit.app/
 
-- Python 3.8+
-- See requirements.txt for package dependencies
+##Project Structure
+
+ufc-fight-outcome-prediction-system/
+├── src/
+│    ├── app.py                  # Streamlit app frontend
+│    ├── fighter_predictions.py   # Prediction logic (model loading and odds handling)
+│    ├── model.py                 # Neural network architecture and training functions
+│    ├── feature_engineering.py   # Feature creation and transformation
+│    └── fighter_data_utils.py    # Fighter filtering by gender and weight class
+├── models/
+│    ├── Known_Odds/              # Models trained with odds
+│    ├── Unknown_Odds/            # Models trained without odds
+│    ├── Predicting_Winner/       # Winner models (no odds)
+│    ├── Predicting_Winner_Odds/  # Winner models (with odds)
+├── requirements.txt
+├── README.md
+
+
+##Future Plans
+
+-Predict full fight cards at once
+-Add value bet screening (based on model odds vs market odds)
+-Track simulated bankroll performance over historical data
+-Add real-time event scraping for upcoming UFC cards
+-Continue improving model calibration and confidence estimation
+
