@@ -203,7 +203,7 @@ def calculate_metrics(df, fighter_specific=False):
 def get_data_points(df):
     # Columns to keep in cleaned data
     data_points = [
-        "RedFighter", "BlueFighter", "Winner", "WinnerName", 
+        "RedFighter", "BlueFighter", "Winner", "WinnerName", "WeightClass", "Gender",
         "Finish", "FinishDetails", "RedWins", "RedWinsByKO", "RedWinsBySubmission", 
         "RedWinsByDecision", "RedLosses", "BlueWins", "BlueWinsByKO", 
         "BlueWinsBySubmission", "BlueWinsByDecision", "BlueLosses", "RedHeightCms", 

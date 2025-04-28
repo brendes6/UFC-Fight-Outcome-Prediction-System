@@ -33,6 +33,29 @@ def extract_fighter_stats():
             # For data points we need, get the value from the red fighter
             for val in values:
                 new_data[val] = row["Red" + val]
+            
+            # Finding weight class - sensitive to weight misses
+            if 120 < new_data["WeightLbs"] <= 130:
+                new_data["WeightClass"] = "Flyweight"
+            elif 130 < new_data["WeightLbs"] <= 140:
+                new_data["WeightClass"] = "Bantamweight"
+            elif 140 < new_data["WeightLbs"] <= 150:
+                new_data["WeightClass"] = "Featherweight"
+            elif 150 < new_data["WeightLbs"] <= 163:
+                new_data["WeightClass"] = "Lightweight"
+            elif 163 < new_data["WeightLbs"] <= 175:
+                new_data["WeightClass"] = "Welterweight"
+            elif 175 < new_data["WeightLbs"] <= 195:
+                new_data["WeightClass"] = "Middleweight"
+            elif 195 < new_data["WeightLbs"] <= 205:
+                new_data["WeightClass"] = "Light Heavyweight"
+            elif new_data["WeightLbs"] > 205:
+                new_data["WeightClass"] = "Heavyweight"
+            else:
+                new_data["WeightClass"] = "Unknown"
+                
+            new_data["Gender"] = row["Gender"]
+                
             fighter_df = pd.concat([fighter_df, pd.DataFrame([new_data])], ignore_index=True)
         if row["BlueFighter"] not in fighters:
             fighters.add(row["BlueFighter"])
@@ -41,6 +64,29 @@ def extract_fighter_stats():
             # For data points we need, get the value from the blue fighter
             for val in values:
                 new_data[val] = row["Blue" + val]
+            
+            # Finding weight class - sensitive to weight misses
+            if 120 < new_data["WeightLbs"] <= 130:
+                new_data["WeightClass"] = "Flyweight"
+            elif 130 < new_data["WeightLbs"] <= 140:
+                new_data["WeightClass"] = "Bantamweight"
+            elif 140 < new_data["WeightLbs"] <= 150:
+                new_data["WeightClass"] = "Featherweight"
+            elif 150 < new_data["WeightLbs"] <= 163:
+                new_data["WeightClass"] = "Lightweight"
+            elif 163 < new_data["WeightLbs"] <= 175:
+                new_data["WeightClass"] = "Welterweight"
+            elif 175 < new_data["WeightLbs"] <= 195:
+                new_data["WeightClass"] = "Middleweight"
+            elif 195 < new_data["WeightLbs"] <= 205:
+                new_data["WeightClass"] = "Light Heavyweight"
+            elif new_data["WeightLbs"] > 205:
+                new_data["WeightClass"] = "Heavyweight"
+            else:
+                new_data["WeightClass"] = "Unknown"
+            
+            new_data["Gender"] = row["Gender"]
+                
             fighter_df = pd.concat([fighter_df, pd.DataFrame([new_data])], ignore_index=True)
     
     fighter_df.to_csv("../Data/Cleaned/fighter-stats.csv", index=False)
@@ -51,6 +97,16 @@ def check_valid_fighter(fighter):
     # Check if fighter is in the fighter-stats.csv file
     data = pd.read_csv("../Data/Cleaned/fighter-stats.csv")
     return fighter in data["Fighter"].values
+
+def get_all_fighters(weight_class, gender):
+    data = pd.read_csv("../Data/Cleaned/fighter-stats.csv")
+    if not weight_class:
+        weight_class = "All"
+    if not gender:
+        gender = "Male"
+    if weight_class == "All":
+        return data[data["Gender"] == gender.upper()]["Fighter"].sort_values(ascending=True)
+    return data[(data["WeightClass"] == weight_class) & (data["Gender"] == gender.upper())]["Fighter"].sort_values(ascending=True)
 
 
 def two_fighter_stats(fighter1, fighter2):
