@@ -1,45 +1,45 @@
-#UFC Fight Outcome Prediction System
+# UFC Fight Outcome Prediction System
 
-
-##Project Overview
+## Project Overview
 
 This project builds a machine learning platform to predict UFC fight outcomes using fighter statistics, historical fight results, and live betting odds.
+
 The web app allows users to:
--Select gender and weight class
--Choose two valid fighters
--Predict the fight winner, outcome probabilities, and expected betting odds
+- Select gender and weight class
+- Choose two valid fighters
+- Predict the fight winner, outcome probabilities, and expected betting odds
 
 Predictions are generated in real-time through an ensemble of neural network models.
 
-##Key Features
+## Key Features
 
--Winner Prediction: Predicts the overall fight winner with confidence percentage.
--Fight Outcome Prediction: Predicts probabilities for KO/TKO, Submission, or Decision for each fighter.
--Live Odds Integration: Incorporates current moneyline odds when available.
--Dynamic Fighter Selection: Filters fighters by gender and weight class for valid matchups.
--Responsive Web App: Built with Streamlit for fast interaction and real-time updates.
+- **Winner Prediction**: Predicts the overall fight winner with confidence percentage
+- **Fight Outcome Prediction**: Predicts probabilities for KO/TKO, Submission, or Decision for each fighter
+- **Live Odds Integration**: Incorporates current moneyline odds when available
+- **Dynamic Fighter Selection**: Filters fighters by gender and weight class for valid matchups
+- **Responsive Web App**: Built with Streamlit for fast interaction and real-time updates
 
+## Machine Learning Details
 
-##Machine Learning Details
+- **Models**: Ensembles of 6 neural networks per task (outcome prediction and winner prediction)
+- **Training**: Stratified cross-validation and early stopping based on validation accuracy
+- **Validation Accuracy**:
+  - Fight Outcome (6-class): 40–42%
+  - Winner Prediction (binary): 70–71%
+- **Features**: Over 50 engineered features based on:
+  - Striking and grappling statistics
+  - Submission attempt rates
+  - Historical win/loss data
+  - ELO ratings
+  - Betting market data
 
--Models: Ensembles of 6 neural networks per task (outcome prediction and winner prediction)
--Training: Stratified cross-validation and early stopping based on validation accuracy
--Validation Accuracy:
-  -Fight Outcome (6-class): 40–42%
-  -Winner Prediction (binary): 70–71%
--Features: Over 50 engineered features based on:
-  -Striking and grappling statistics
-  -Submission attempt rates
-  -Historical win/loss data
-  -ELO ratings
-  -Betting market data
+## Live Demo
 
-
-##Live Demo
 https://ufc-fight-outcome-prediction-system-af9azviwjgntmxb2wkcv8b.streamlit.app/
 
-##Project Structure
+## Project Structure
 
+```
 ufc-fight-outcome-prediction-system/
 ├── src/
 │    ├── app.py                  # Streamlit app frontend
@@ -54,13 +54,13 @@ ufc-fight-outcome-prediction-system/
 │    ├── Predicting_Winner_Odds/  # Winner models (with odds)
 ├── requirements.txt
 ├── README.md
+```
 
+## Future Plans
 
-##Future Plans
-
--Predict full fight cards at once
--Add value bet screening (based on model odds vs market odds)
--Track simulated bankroll performance over historical data
--Add real-time event scraping for upcoming UFC cards
--Continue improving model calibration and confidence estimation
+- Predict full fight cards at once
+- Add value bet screening (based on model odds vs market odds)
+- Track simulated bankroll performance over historical data
+- Add real-time event scraping for upcoming UFC cards
+- Continue improving model calibration and confidence estimation
 
