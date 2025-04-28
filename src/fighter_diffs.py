@@ -99,7 +99,10 @@ def check_valid_fighter(fighter):
     return fighter in data["Fighter"].values
 
 def get_all_fighters(weight_class, gender):
-    data = pd.read_csv("../Data/Cleaned/fighter-stats.csv")
+    current_script_dir = os.path.dirname(__file__)
+    data_relative_path = os.path.join(current_script_dir, "..", "Data", "Cleaned", "fighter-stats.csv")
+
+    data = pd.read_csv(data_relative_path)
     if not weight_class:
         weight_class = "All"
     if not gender:
