@@ -4,6 +4,12 @@ from fighter_diffs import check_valid_fighter, get_all_fighters, get_random_figh
 import random
 st.title("UFC Fight Outcome Predictor")
 
+def implied_prob(american_odds):
+    if american_odds > 0:
+        return 100 / (american_odds + 100)
+    else:
+        return -american_odds / (-american_odds + 100)
+
 def get_weight_classes(gender):
     if gender == "Female":
         return ["All", "Strawweight", "Flyweight", "Bantamweight"]
@@ -11,7 +17,7 @@ def get_weight_classes(gender):
         return ["All", "Flyweight", "Bantamweight", "Featherweight", "Lightweight", "Welterweight", "Middleweight", "Light Heavyweight", "Heavyweight"]
     
 def print_outcomes(red_fighter, blue_fighter, use_odds, weight_class):
-    mean_outcome_pred, mean_winner_pred, outcome_odds, winner_odds, odds_available = predict_fight(red_fighter, blue_fighter, use_odds)
+    mean_outcome_pred, mean_winner_pred, outcome_odds, winner_odds, odds_available, odds = predict_fight(red_fighter, blue_fighter, use_odds)
 
     if odds_available and use_odds:
         st.write("Using Model Trained on Known Odds:")
@@ -28,6 +34,19 @@ def print_outcomes(red_fighter, blue_fighter, use_odds, weight_class):
     else:
         st.markdown(f"##### {blue_fighter} ({mean_winner_pred[1]*100:.0f}% confidence)")
     st.markdown("---")
+    
+    if odds_available and use_odds:
+        st.markdown("#### Value Checking")
+        st.markdown(f"**Vegas Odds:** {odds[0]}, {odds[1]}")
+        st.markdown(f"**Predicted Odds:** {winner_odds[0]}, {winner_odds[1]}")
+        my_red_implied, my_blue_implied = implied_prob(int(winner_odds[0])), implied_prob(int(winner_odds[1]))
+        vegas_red_implied, vegas_blue_implied = implied_prob(int(odds[0])), implied_prob(int(odds[1]))
+        if my_red_implied > vegas_red_implied:
+            st.markdown(f"Value detected on {red_fighter} (Model: {my_red_implied:.0%} vs Market: {vegas_red_implied:.0%})")
+        if my_blue_implied > vegas_blue_implied:
+            st.markdown(f"Value detected on {blue_fighter} (Model: {my_blue_implied:.0%} vs Market: {vegas_blue_implied:.0%})")
+
+        st.markdown("---")
     
     col1, col2 = st.columns(2)
     

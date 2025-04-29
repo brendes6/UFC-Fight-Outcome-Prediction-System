@@ -27,7 +27,7 @@ def odds_conversion(predictions, from_type="decimal", for_prediction=False):
                 if for_prediction:
                     odds.append((int((-100) / (prediction - 1)) // 10) * 10)
                 else:
-                    odds.append(f"-{(int((-100) / (prediction - 1)) // 10) * 10:.0f}")
+                    odds.append(f"{(int((-100) / (prediction - 1)) // 10) * 10:.0f}")
         elif from_type == "percentage":
             if prediction == 0.5:
                 if for_prediction:
@@ -43,7 +43,7 @@ def odds_conversion(predictions, from_type="decimal", for_prediction=False):
                 if for_prediction:
                     odds.append((int((-prediction / (1 - prediction)) * 100) // 10) * 10)
                 else:
-                    odds.append(f"-{(int((-prediction / (1 - prediction)) * 100) // 10) * 10:.0f}")
+                    odds.append(f"{(int((-prediction / (1 - prediction)) * 100) // 10) * 10:.0f}")
 
     return odds
 
@@ -70,11 +70,12 @@ def predict_fight(fighter1, fighter2, known_odds=False):
 
     # Add odd values if known_odds
     if known_odds:
-        print(odds)
         converted_odds = odds_conversion(odds, from_type="decimal", for_prediction=True)
-        print(converted_odds)
         df["RedOdds"] = converted_odds[0]
         df["BlueOdds"] = converted_odds[1]
+        display_odds = odds_conversion(odds, from_type="decimal", for_prediction=False)
+    else:
+        display_odds = [None, None]
     
 
     # .copy() to maintain column order
@@ -115,7 +116,9 @@ def predict_fight(fighter1, fighter2, known_odds=False):
     outcome_odds = odds_conversion(mean_outcome_pred, from_type="percentage", for_prediction=False)
     winner_odds = odds_conversion(mean_winner_pred, from_type="percentage", for_prediction=False)
 
-    return mean_outcome_pred, mean_winner_pred, outcome_odds, winner_odds, known_odds
+
+
+    return mean_outcome_pred, mean_winner_pred, outcome_odds, winner_odds, known_odds, display_odds
 
     
 
