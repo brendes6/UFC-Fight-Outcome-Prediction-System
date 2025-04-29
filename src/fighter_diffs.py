@@ -1,7 +1,7 @@
 import pandas as pd
 from data_cleaning import calculate_metrics, get_data_points
 import os
-
+import random
 def extract_fighter_stats():
     data = pd.read_csv("../Data/Cleaned/ufc-clean.csv")
 
@@ -92,6 +92,22 @@ def extract_fighter_stats():
     fighter_df.to_csv("../Data/Cleaned/fighter-stats.csv", index=False)
 
     return fighter_df
+
+def get_random_fighter(weight_class, gender):
+    current_script_dir = os.path.dirname(__file__)
+    data_relative_path = os.path.join(current_script_dir, "..", "Data", "Cleaned", "fighter-stats.csv")
+
+    data = pd.read_csv(data_relative_path)
+
+    if not weight_class:
+        weight_class = "All"
+    if not gender:
+        gender = "Male"
+    if weight_class == "All":
+        return data[data["Gender"] == gender.upper()].iloc[random.randint(0, len(data[data["Gender"] == gender.upper()]) - 1)]["Fighter"]
+    return data[(data["WeightClass"] == weight_class) & (data["Gender"] == gender.upper())].iloc[random.randint(0, len(data[(data["WeightClass"] == weight_class) & (data["Gender"] == gender.upper())]) - 1)]["Fighter"]
+    
+
 
 def check_valid_fighter(fighter):
     current_script_dir = os.path.dirname(__file__)

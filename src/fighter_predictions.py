@@ -8,6 +8,8 @@ from model import predict, build_model
 from fighter_diffs import check_valid_fighter
 from get_odds import get_odds
 import os
+import streamlit as st
+
 
 def odds_conversion(predictions, from_type="decimal", for_prediction=False):
     # Convert percentage predictions to odds
@@ -46,6 +48,7 @@ def odds_conversion(predictions, from_type="decimal", for_prediction=False):
     return odds
 
 
+@st.cache_resource
 def predict_fight(fighter1, fighter2, known_odds=False):
 
     if known_odds:
