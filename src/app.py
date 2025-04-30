@@ -64,7 +64,7 @@ def print_outcomes(red_fighter, blue_fighter, use_odds, weight_class):
         st.markdown(f"- Submission: {mean_outcome_pred[4]*100:.1f}% ({outcome_odds[4]})")
         st.markdown(f"- Decision: {mean_outcome_pred[5]*100:.1f}% ({outcome_odds[5]})")
 
-with st.sidebar.expander("ℹ️ How it Works"):
+with st.sidebar.expander("How it Works"):
     st.markdown("""
     This app uses an ensemble of machine learning models trained on historical UFC data to predict:
 
@@ -79,6 +79,43 @@ with st.sidebar.expander("ℹ️ How it Works"):
     - Generate predictions instantly, including value picks and odds estimates
     """)
 
+with st.sidebar.expander("Recent Accuracy Tracker"):
+    st.markdown("""     
+    **UFC ON ESPN: Garry vs Prates**:
+     - Winner Predictions: 8/10 (80%)
+     - Outcome Predictions: 4/10 (40%)
+    
+    **UFC 314**:
+     - Winner Predictions: 5/7 (71%)
+     - Outcome Predictions: 3/7 (43%)
+    """)
+
+with st.sidebar.expander("Upcoming Fight Predictions"):
+    st.markdown("""
+        ** Sandhagen v Figueiredo: **
+        - Predicted Winner: Cory Sandhagen (64% confidence)
+        - Predicted Outcome: Sandhagen Decision (37.5%)
+
+        ** Ponzinibbio v Rodriguez: **
+        - Predicted Winner: Daniel Rodriguez (55% confidence)
+        - Predicted Outcome: Ponzinibbio Decision (30.9%)
+
+        ** Jackson v Marcos: **
+        - Predicted Winner: Monel Jackson (64% confidence)
+        - Predicted Outcome: Jackson Decision (37.2%)
+
+        ** Stephens v Jones: **
+        - Predicted Winner: Mason Jones (72% confidence)
+        - Predicted Outcome: Jones Decision (44.9%)
+
+        ** Santos v Tate: **
+        - Predicted Winner: Yana Santos (51% confidence)
+        - Predicted Outcome: Santos Decision (31.4%)
+
+        ** Rodrigues v Robertson: **
+        - Predicted Winner: Gillian Robertson (52% confidence)
+        - Predicted Outcome: Robertson Decision (38.7%)
+""")
 
 gender = st.selectbox("Gender:", ["Male", "Female"], index=None, placeholder="Select a gender")
 
@@ -90,7 +127,8 @@ red_fighter = st.selectbox("Red Corner Fighter:", get_all_fighters(weight_class,
 blue_fighter = st.selectbox("Blue Corner Fighter:", get_all_fighters(weight_class, gender), index=None, placeholder="Select a fighter")
 
 # Option to use odds or not
-use_odds = st.checkbox("Use Vegas Odds (if available)?", value=False)
+use_odds = st.toggle("Use Vegas Odds (if available)?", value=False)
+st.markdown("Model trained on moneline odds offers a ~2% boost in outcome and winner accuracy.")
 
 if st.button("Predict Fight"):
     if check_valid_fighter(red_fighter) and check_valid_fighter(blue_fighter):
