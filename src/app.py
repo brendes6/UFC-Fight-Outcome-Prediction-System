@@ -64,6 +64,22 @@ def print_outcomes(red_fighter, blue_fighter, use_odds, weight_class):
         st.markdown(f"- Submission: {mean_outcome_pred[4]*100:.1f}% ({outcome_odds[4]})")
         st.markdown(f"- Decision: {mean_outcome_pred[5]*100:.1f}% ({outcome_odds[5]})")
 
+with st.sidebar.expander("ℹ️ How it Works"):
+    st.markdown("""
+    This app uses an ensemble of machine learning models trained on historical UFC data to predict:
+
+    - The most likely winner of a given fight
+    - Probabilities of each fighter winning by KO/TKO, submission, or decision
+    - Betting value based on the model's predicted win percentage vs Vegas odds
+
+    You can:
+    - Choose gender + weight class
+    - Select any two valid fighters
+    - Use real-time Vegas odds (when available) or default to stat-only models
+    - Generate predictions instantly, including value picks and odds estimates
+    """)
+
+
 gender = st.selectbox("Gender:", ["Male", "Female"], index=None, placeholder="Select a gender")
 
 weight_class = st.selectbox("Weight Class:", get_weight_classes(gender), index=None, placeholder="Select a weight class")
