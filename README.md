@@ -35,7 +35,7 @@ Predictions are generated in real-time through an ensemble of neural network mod
 
 ## Live Demo
 
-https://ufc-fight-outcome-prediction-system-af9azviwjgntmxb2wkcv8b.streamlit.app/
+https://ufc-predictor-brendes6.streamlit.app/
 
 ## Project Structure
 
