@@ -80,11 +80,23 @@ with st.sidebar.expander("How it Works"):
     """)
 
 with st.sidebar.expander("Recent Accuracy Tracker"):
-    st.markdown("""     
+    st.markdown("""
+    **Fights since Apr 10:**
+     - Winner Predictions: 24/31 (77%)
+     - Outcome Predictions: 13/31 (42%)
+        
+    **UFC 315:**
+     - Winner Predictions: 5/8 (62%)
+     - Outcome Predictions: 3/8 (38%))
+
+    **UFC Fight Night: Sandhagen v Figueiredo**
+     - Winner Predictions: 6/6 (100%)
+     - Outcome Predictions: 3/6 (50%)
+                
     **UFC ON ESPN: Garry vs Prates**:
      - Winner Predictions: 8/10 (80%)
      - Outcome Predictions: 4/10 (40%)
-    
+                
     **UFC 314**:
      - Winner Predictions: 5/7 (71%)
      - Outcome Predictions: 3/7 (43%)
@@ -92,29 +104,29 @@ with st.sidebar.expander("Recent Accuracy Tracker"):
 
 with st.sidebar.expander("Upcoming Fight Predictions"):
     st.markdown("""
-        ** Sandhagen v Figueiredo: **
-        - Predicted Winner: Cory Sandhagen (64% confidence)
-        - Predicted Outcome: Sandhagen Decision (37.5%)
+        ** Burns v Morales: **
+        - Predicted Winner: Michael Morales (79% confidence)
+        - Predicted Outcome: Morales Decision (47.6%)        
+        
+        ** Stoltzfus v Ruziboev: **
+        - Predicted Winner: Nurulston Ruziboev (65% confidence)
+        - Predicted Outcome: Ruziboev KO (34.7%)        
+        
+        ** Erosa v Costa: **
+        - Predicted Winner: Melquizael Costa (65% confidence)
+        - Predicted Outcome: Costa Decision (31.9%)        
+        
+        ** Gordon v Moises: **
+        - Predicted Winner: Jared Gordon (62% confidence)
+        - Predicted Outcome: Gordon Decision (29.6%)
 
-        ** Ponzinibbio v Rodriguez: **
-        - Predicted Winner: Daniel Rodriguez (55% confidence)
-        - Predicted Outcome: Ponzinibbio Decision (30.9%)
-
-        ** Jackson v Marcos: **
-        - Predicted Winner: Monel Jackson (64% confidence)
-        - Predicted Outcome: Jackson Decision (37.2%)
-
-        ** Stephens v Jones: **
-        - Predicted Winner: Mason Jones (72% confidence)
-        - Predicted Outcome: Jones Decision (44.9%)
-
-        ** Santos v Tate: **
-        - Predicted Winner: Yana Santos (51% confidence)
-        - Predicted Outcome: Santos Decision (31.4%)
-
-        ** Rodrigues v Robertson: **
-        - Predicted Winner: Gillian Robertson (52% confidence)
-        - Predicted Outcome: Robertson Decision (38.7%)
+        ** Reed v Gomes: **
+        - Predicted Winner: Denise Gomes (65% confidence)
+        - Predicted Outcome: Gomes Decision (31.8%)       
+        
+        ** Hyun-sung v Hernandez: **
+        - Predicted Winner: HyunSung Park (65% confidence)
+        - Predicted Outcome: Park Submission (29.7%)
 """)
 
 gender = st.selectbox("Gender:", ["Male", "Female"], index=None, placeholder="Select a gender")

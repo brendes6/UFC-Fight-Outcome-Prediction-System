@@ -65,10 +65,11 @@ ufc-fight-outcome-prediction-system/
 ├── README.md
 ```
 
+
+
 ## Future Plans
 
 - Predict full fight cards at once
-- Add value bet screening (based on model odds vs market odds)
 - Track simulated bankroll performance over historical data
 - Add real-time event scraping for upcoming UFC cards
 - Continue improving model calibration and confidence estimation
