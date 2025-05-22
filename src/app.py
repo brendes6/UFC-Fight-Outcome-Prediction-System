@@ -82,8 +82,12 @@ with st.sidebar.expander("How it Works"):
 with st.sidebar.expander("Recent Accuracy Tracker"):
     st.markdown("""
     **Fights since Apr 10:**
-     - Winner Predictions: 24/31 (77%)
-     - Outcome Predictions: 13/31 (42%)
+     - Winner Predictions: 30/37 (81%)
+     - Outcome Predictions: 15/37 (41%)
+                
+    **UFC Fight Night: Burns v Morales**
+     - Winner Predictions: 6/6 (100%)
+     - Outcome Predictions: 2/6 (33%)
         
     **UFC 315:**
      - Winner Predictions: 5/8 (62%)
@@ -104,29 +108,25 @@ with st.sidebar.expander("Recent Accuracy Tracker"):
 
 with st.sidebar.expander("Upcoming Fight Predictions"):
     st.markdown("""
-        ** Burns v Morales: **
-        - Predicted Winner: Michael Morales (79% confidence)
-        - Predicted Outcome: Morales Decision (47.6%)        
-        
-        ** Stoltzfus v Ruziboev: **
-        - Predicted Winner: Nurulston Ruziboev (65% confidence)
-        - Predicted Outcome: Ruziboev KO (34.7%)        
-        
-        ** Erosa v Costa: **
-        - Predicted Winner: Melquizael Costa (65% confidence)
-        - Predicted Outcome: Costa Decision (31.9%)        
-        
-        ** Gordon v Moises: **
-        - Predicted Winner: Jared Gordon (62% confidence)
-        - Predicted Outcome: Gordon Decision (29.6%)
+        ** Blanchfield v Barber: **
+        - Predicted Winner: Erin Blanchfield (54% confidence)
+        - Predicted Outcome: Barber Decision (31.9%) 
 
-        ** Reed v Gomes: **
-        - Predicted Winner: Denise Gomes (65% confidence)
-        - Predicted Outcome: Gomes Decision (31.8%)       
-        
-        ** Hyun-sung v Hernandez: **
-        - Predicted Winner: HyunSung Park (65% confidence)
-        - Predicted Outcome: Park Submission (29.7%)
+        ** Gamrot v Klein: **
+        - Predicted Winner: Mateusz Gamrot (60% confidence)
+        - Predicted Outcome: Gamrot Decision (33.9%) 
+
+        ** Brahimaj v Elliot: **
+        - Predicted Winner: Elliot (77% confidence)
+        - Predicted Outcome: Elliot Decision (41.4%) 
+
+        ** Filho v Nascimento: **
+        - Predicted Winner: Allen Nascimento (65% confidence)
+        - Predicted Outcome: Nascimento Decision (25.3%)         
+
+        ** Holobaugh v Leavitt: **
+        - Predicted Winner: Jordan Leavitt (64% confidence)
+        - Predicted Outcome: Leavitt Decision (30.5%)        
 """)
 
 gender = st.selectbox("Gender:", ["Male", "Female"], index=None, placeholder="Select a gender")

@@ -200,6 +200,7 @@ def two_fighter_stats(fighter1, fighter2):
 if __name__ == "__main__":
     print(extract_fighter_stats())
     df = two_fighter_stats("Conor McGregor", "Dustin Poirier")
+    print(df.head())
     
     
         
