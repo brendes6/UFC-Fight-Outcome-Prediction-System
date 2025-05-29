@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from odds_util import implied_prob, odds_conversion
+import os
 
 URL = "https://www.bestfightodds.com/"
 
@@ -54,7 +55,9 @@ def get_bfo_html():
 
 
 def get_odds_data(red_fighter, blue_fighter):
-    with open('../html_files/odds_file.html', 'r', encoding='utf-8') as f:
+    current_script_dir = os.path.dirname(__file__)
+    html_relative_path = os.path.join(current_script_dir, "..", "html_files", "odds_file.html")
+    with open(html_relative_path, 'r', encoding='utf-8') as f:
         html = f.read()
 
     bs = BeautifulSoup(html, 'html.parser')
