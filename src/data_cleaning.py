@@ -230,9 +230,12 @@ def get_data_points(df):
     # Remove rows with null values
     for column in data_points:
         if df[column].isnull().sum() > 0:
-            print(f"{column} has {df[column].isnull().sum()} null values")
-            df = df.dropna(subset=[column])
+            df[column] = df[column].fillna(df[column].mean())
+
     
+    df = df[df["RedWins"] > 0]
+    df = df[df["BlueWins"] > 0]
+
     # Select final columns
     df = df[data_points]
 

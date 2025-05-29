@@ -1,66 +1,25 @@
-import pandas as pd
 import numpy as np
 import torch
 from fighter_diffs import two_fighter_stats
-from feature_engineering import get_X_y
 import joblib
 from model import predict, build_model
-from fighter_diffs import check_valid_fighter
-from get_odds import get_odds
 import os
 import streamlit as st
-
-
-def odds_conversion(predictions, from_type="decimal", for_prediction=False):
-    # Convert percentage predictions to odds
-
-    odds = []
-
-    for prediction in predictions:
-        if from_type == "decimal":
-            if prediction >= 2.0:
-                if for_prediction:
-                    odds.append((int((prediction - 1) * 100) // 10) * 10)
-                else:
-                    odds.append(f"+{(int((prediction - 1) * 100) // 10) * 10:.0f}")
-            else:
-                if for_prediction:
-                    odds.append((int((-100) / (prediction - 1)) // 10) * 10)
-                else:
-                    odds.append(f"{(int((-100) / (prediction - 1)) // 10) * 10:.0f}")
-        elif from_type == "percentage":
-            if prediction == 0.5:
-                if for_prediction:
-                    odds.append(100)
-                else:
-                    odds.append("+100")
-            elif prediction < 0.5:
-                if for_prediction:
-                    odds.append((int(((1 - prediction) / prediction) * 100) // 10) * 10)
-                else:
-                    odds.append(f"+{(int(((1 - prediction) / prediction) * 100) // 10) * 10:.0f}")
-            else:
-                if for_prediction:
-                    odds.append((int((-prediction / (1 - prediction)) * 100) // 10) * 10)
-                else:
-                    odds.append(f"{(int((-prediction / (1 - prediction)) * 100) // 10) * 10:.0f}")
-
-    return odds
-
+from odds_util import odds_conversion
 
 @st.cache_resource
-def predict_fight(fighter1, fighter2, known_odds=False):
+def predict_fight(fighter1, fighter2, odds_data=None):
 
-    if known_odds:
-        odds = get_odds(fighter1, fighter2)
-        if odds[0] != None and odds[1] != None:
-            current_script_dir = os.path.dirname(__file__)
-            scaler_relative_path = os.path.join(current_script_dir, "..", "Models", "Known_Odds", "scaler.pkl")
-            scaler, saved_order = joblib.load(scaler_relative_path)
-        else:
-            print("No odds found. Using unknown odds.")
-            known_odds = False
+    # Check if odds data is provided
+    if odds_data != None:
+        current_script_dir = os.path.dirname(__file__)
+        scaler_relative_path = os.path.join(current_script_dir, "..", "Models", "Known_Odds", "scaler.pkl")
+        scaler, saved_order = joblib.load(scaler_relative_path)
+        known_odds = True
+    else:
+        known_odds = False
 
+    # If odds data is not provided, use unknown odds
     if not known_odds:
         current_script_dir = os.path.dirname(__file__)
         scaler_relative_path = os.path.join(current_script_dir, "..", "Models", "Unknown_Odds", "scaler.pkl")
@@ -70,12 +29,9 @@ def predict_fight(fighter1, fighter2, known_odds=False):
 
     # Add odd values if known_odds
     if known_odds:
-        converted_odds = odds_conversion(odds, from_type="decimal", for_prediction=True)
-        df["RedOdds"] = converted_odds[0]
-        df["BlueOdds"] = converted_odds[1]
-        display_odds = odds_conversion(odds, from_type="decimal", for_prediction=False)
-    else:
-        display_odds = [None, None]
+        df["RedOdds"] = int(odds_data["RedOdds"])
+        df["BlueOdds"] = int(odds_data["BlueOdds"])
+
     
 
     # .copy() to maintain column order
@@ -113,59 +69,13 @@ def predict_fight(fighter1, fighter2, known_odds=False):
 
     mean_outcome_pred = np.mean(np.stack(outcome_predictions_list), axis=0)
     mean_winner_pred = np.mean(np.stack(winner_predictions_list), axis=0)
-    outcome_odds = odds_conversion(mean_outcome_pred, from_type="percentage", for_prediction=False)
-    winner_odds = odds_conversion(mean_winner_pred, from_type="percentage", for_prediction=False)
+    outcome_odds = odds_conversion(mean_outcome_pred)
+    winner_odds = odds_conversion(mean_winner_pred)
 
-
-
-    return mean_outcome_pred, mean_winner_pred, outcome_odds, winner_odds, known_odds, display_odds
+    return mean_outcome_pred, mean_winner_pred, outcome_odds, winner_odds
 
     
 
-
-def predictions():
-    
-    # Get and validate fighter names
-    print("Enter the first fighter: ")
-    fighter1 = input()
-    while not check_valid_fighter(fighter1): 
-        print("Invalid fighter. Please try again.")
-        fighter1 = input()
-
-    print("Enter the second fighter: ")
-    fighter2 = input()
-    while not check_valid_fighter(fighter2):
-        print("Invalid fighter. Please try again.")
-        fighter2 = input()
-
-    known_odds = False
-    print("Do you want to use known odds? (y/n)")
-    if input() == "y":
-        known_odds = True
-
-    mean_outcome_pred, mean_winner_pred, outcome_odds, winner_odds, odds_available = predict_fight(fighter1, fighter2, known_odds)
-
-
-    if odds_available:
-        print("Using Vegas Odds:")
-    else:
-        print("Using Unknown Odds:")
-    print(f"\n\nPrediction: {fighter1} vs {fighter2}\n")
-    print(f"\tRed Wins:   {mean_winner_pred[0]*100:.1f}% ({winner_odds[0]})")
-    print(f"\tBlue Wins:  {mean_winner_pred[1]*100:.1f}% ({winner_odds[1]})")
-    print(f"\tRed KO:   {mean_outcome_pred[0]*100:.1f}% ({outcome_odds[0]})")
-    print(f"\tRed Sub:  {mean_outcome_pred[1]*100:.1f}% ({outcome_odds[1]})")
-    print(f"\tRed Dec:  {mean_outcome_pred[2]*100:.1f}% ({outcome_odds[2]})")
-    print(f"\tBlue KO:  {mean_outcome_pred[3]*100:.1f}% ({outcome_odds[3]})")
-    print(f"\tBlue Sub: {mean_outcome_pred[4]*100:.1f}% ({outcome_odds[4]})")
-    print(f"\tBlue Dec: {mean_outcome_pred[5]*100:.1f}% ({outcome_odds[5]})")
-    print("\n")
-    
-
-
-
-if __name__ == "__main__":
-    predictions()
 
     
 
