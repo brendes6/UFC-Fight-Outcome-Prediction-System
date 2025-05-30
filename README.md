@@ -1,10 +1,10 @@
-# UFC Fight Outcome Prediction System
+# UFC Fight Outcome Prediction System and Betting Value Checker
 
 ## Project Overview
 
-This project builds a machine learning platform to predict UFC fight outcomes using fighter statistics, historical fight results, and live betting odds.
+This project builds a machine learning platform to predict UFC fight outcomes using fighter statistics, historical fight results, and live betting odds. It also scrapes live odds for upcoming fights to indentify value picks.
 
-The web app allows users to:
+The prediction portion of the web app allows users to:
 - Select gender and weight class
 - Choose two valid fighters
 - Predict the fight winner, outcome probabilities, and expected betting odds
@@ -18,6 +18,7 @@ Predictions are generated in real-time through an ensemble of neural network mod
 - **Live Odds Integration**: Incorporates current moneyline odds when available
 - **Dynamic Fighter Selection**: Filters fighters by gender and weight class for valid matchups
 - **Responsive Web App**: Built with Streamlit for fast interaction and real-time updates
+- **Value Checking**: We compare our calculated outcome probabilities with what vegas says to identify value
 
 ## Machine Learning Details
 
@@ -47,7 +48,7 @@ ufc-fight-outcome-prediction-system/
 │    ├── model.py                 # Neural network architecture and training functions
 │    ├── feature_engineering.py   # Feature creation and transformation
 │    ├── fighter_diffs.py         # Get individual fighter stats and prepare for retreival from frontend
-|    ├── get_odds.py              # Pulling odds from API
+|    ├── scrape_odds.py           # Scraping odds from bestfightodds.com 
 |    └── data_cleaning.py         # Cleaning data for model training + individual stat retreival
 ├── models/
 │    ├── Known_Odds/              # Models trained with odds
@@ -65,12 +66,14 @@ ufc-fight-outcome-prediction-system/
 ├── README.md
 ```
 
-
+## Recent Accuracy:
+    **Fights since Apr 10:**
+     - Winner Predictions: 30/37 (81%)
+     - Outcome Predictions: 15/37 (41%)
 
 ## Future Plans
 
 - Predict full fight cards at once
 - Track simulated bankroll performance over historical data
-- Add real-time event scraping for upcoming UFC cards
 - Continue improving model calibration and confidence estimation
 
