@@ -129,5 +129,5 @@ def get_odds_data(red_fighter, blue_fighter):
 
 
 if __name__ == "__main__":
-    print(get_odds_data("Erin Blanchfield", "Maycee Barber"))
+    get_bfo_html()
 
