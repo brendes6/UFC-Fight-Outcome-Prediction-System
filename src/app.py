@@ -136,8 +136,12 @@ with st.sidebar.expander("How it Works"):
 with st.sidebar.expander("Recent Accuracy Tracker"):
     st.markdown("""
     **Fights since Apr 10:**
-     - Winner Predictions: 30/37 (81%)
-     - Outcome Predictions: 15/37 (41%)
+     - Winner Predictions: 35/44 (79.5%)
+     - Outcome Predictions: 18/44 (40.9%)
+    
+    ** UFC ON ESPN: Blanchfield v Barber**
+     - Winner Predictions: 5/7 (71%)
+     - Outcome Predictions: 3/7 (43%)
                 
     **UFC Fight Night: Burns v Morales**
      - Winner Predictions: 6/6 (100%)
@@ -162,45 +166,50 @@ with st.sidebar.expander("Recent Accuracy Tracker"):
 
 with st.sidebar.expander("Upcoming Fight Predictions"):
     st.markdown("""
-        ** Blanchfield v Barber: **
-        - Predicted Winner: Erin Blanchfield (50% confidence)
-        - Predicted Outcome: Barber Decision (34.6%) 
-        - Value Pick: Barber Decision (We say 34.6%, Vegas says 18.2%)
-
-        ** Gamrot v Klein: **
-        - Predicted Winner: Mateusz Gamrot (56% confidence)
-        - Predicted Outcome: Gamrot Decision (39.0%) 
+        ** Dvalishvili v O'Malley: **
+        - Predicted Winner: Merab Dvalishvili (56% confidence)
+        - Predicted Outcome: Dvalishvili Decision (29.6%) 
+        - Value Picks: O'Malley ML (We say 44%, Vegas says 29%), Fight outcome being Submission (We say 30.5%, Vegas says 14.5%)
+                
+        ** Pena v Harrison: **
+        - Predicted Winner: Kayla Harrison (70% confidence)
+        - Predicted Outcome: Harrison Decision (31.9%) 
+        - Value Pick: Pena ML (We say 30%, Vegas says 18%)
+                
+        ** Gastelum v Pyfer: **
+        - Predicted Winner: Joe Pyfer (72% confidence)
+        - Predicted Outcome: Pyfer Decision (30.7%) 
         - Value Pick: None
                 
-        ** Ray Goff v Brahimaj: **
-        - Predicted Winner: Billy Ray Goff (75% confidence)
-        - Predicted Outcome: Goff KO/TKO (41.5%) 
-        - Value Pick: None
-
-        ** Jacoby v Lopes: **
-        - Predicted Winner: Dustin Jacoby (74% confidence)
-        - Predicted Outcome: Jacoby KO/TKO (36.6%)        
-        - Value Pick: None
-
-        ** Vieira v Chiasson: **
-        - Predicted Winner: Macy Chiasson (58% confidence)
-        - Predicted Outcome: Chiasson Decision (41.0%)     
-        - Value Pick: None
+        ** Holland v Luque: **
+        - Predicted Winner: Kevin Holland (57% confidence)
+        - Predicted Outcome: Holland Decision (26.5%) 
+        - Value Pick: Luque ML (We say 43%, Vegas says 36%)
                 
-        ** Reese v Todorovic: **
-        - Predicted Winner: Zachary Reese (72% confidence)
-        - Predicted Outcome: Reese Submission (34.6%)  
+        ** Silva v Van: **
+        - Predicted Winner: Joshua Van (75% confidence)
+        - Predicted Outcome: Van Decision (31.6%) 
         - Value Pick: None
 
-        ** Filho v Nascimento: **
-        - Predicted Winner: Allen Nascimento (62% confidence)
-        - Predicted Outcome: Nascimento Decision (29.6%)
-        - Value Pick: Filho Submission (We say 19.9%, Vegas says 12.5%)
+        ** Murzakanov v Ribeiro: **
+        - Predicted Winner: Azamat Murzakanov (80% confidence)
+        - Predicted Outcome: Murzakanov KO/TKO (43.1%) 
+        - Value Pick: Murzakanov Decision (We say 25.6%, Vegas says 14.3%)
 
-        ** Holobaugh v Leavitt: **
-        - Predicted Winner: Jordan Leavitt (67% confidence)
-        - Predicted Outcome: Leavitt Decision (32.7%)   
-        - Value Pick: Leavitt KO/TKO (We say 18.2%, Vegas says 7.7%)     
+        ** Spivak v Cortes-Acosta: **
+        - Predicted Winner: Sergey Spivak (60% confidence)
+        - Predicted Outcome: Spivak Decision (26.7%) 
+        - Value Pick: Spivak KO/TKO (We say 21.1%, Vegas says 15.4%)
+                
+        ** Lipski v Cong: **
+        - Predicted Winner: Wang Kong (73% confidence)
+        - Predicted Outcome: Kong KO/TKO (30.4%) 
+        - Value Pick: Lipski KO/TKO (We say 13.3%, Vegas says 6.2%)                
+        
+        ** Salkilld v Ashmouz: **
+        - Predicted Winner: Quillian Salkilld (92% confidence)
+        - Predicted Outcome: Salkilld Decision (34.8%) 
+        - Value Picks: Salkilld KO/TKO (We say 30.2%, Vegas says 18.2%), Salkilld ML (We say 92%, Vegas says 80%)
 """)
 
 gender = st.selectbox("Gender:", ["Male", "Female"], index=None, placeholder="Select a gender")
