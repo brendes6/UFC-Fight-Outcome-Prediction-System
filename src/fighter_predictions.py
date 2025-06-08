@@ -1,11 +1,11 @@
 import numpy as np
 import torch
-from fighter_diffs import two_fighter_stats
+from app_util import two_fighter_stats
 import joblib
 from model import predict, build_model
 import os
 import streamlit as st
-from odds_util import odds_conversion
+from app_util import odds_conversion
 
 @st.cache_resource
 def predict_fight(fighter1, fighter2, odds_data=None):
@@ -71,6 +71,24 @@ def predict_fight(fighter1, fighter2, odds_data=None):
     mean_winner_pred = np.mean(np.stack(winner_predictions_list), axis=0)
     outcome_odds = odds_conversion(mean_outcome_pred)
     winner_odds = odds_conversion(mean_winner_pred)
+
+    mean_outcome_pred = [
+        mean_outcome_pred[0],
+        mean_outcome_pred[1],
+        mean_outcome_pred[2],
+        mean_outcome_pred[3],
+        mean_outcome_pred[4],
+        mean_outcome_pred[5],
+        mean_outcome_pred[0] + mean_outcome_pred[3],
+        mean_outcome_pred[0] + mean_outcome_pred[4],
+        mean_outcome_pred[0] + mean_outcome_pred[5],
+        mean_outcome_pred[1] + mean_outcome_pred[3],
+        mean_outcome_pred[1] + mean_outcome_pred[4],
+        mean_outcome_pred[1] + mean_outcome_pred[5],
+        mean_outcome_pred[2] + mean_outcome_pred[3],
+        mean_outcome_pred[2] + mean_outcome_pred[4],
+        mean_outcome_pred[2] + mean_outcome_pred[5],
+    ]
 
     return mean_outcome_pred, mean_winner_pred, outcome_odds, winner_odds
 
