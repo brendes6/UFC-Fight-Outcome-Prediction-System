@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from app_util import check_valid_fighter, get_odds_data, get_value_picks
-from fighter_predictions import predict_fight
+from .app_util import check_valid_fighter, get_odds_data, get_value_picks
+from .fighter_predictions import predict_fight
 from typing import Dict, List
 import numpy as np
 

@@ -1,4 +1,4 @@
-from data_cleaning import calculate_metrics
+from .data_cleaning import calculate_metrics
 import os
 import pandas as pd
 from bs4 import BeautifulSoup

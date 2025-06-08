@@ -1,6 +1,6 @@
 import streamlit as st
-from fighter_predictions import predict_fight  
-from app_util import get_all_fighters, implied_prob, get_weight_classes, get_odds_data, get_value_picks
+from .fighter_predictions import predict_fight  
+from .app_util import get_all_fighters, implied_prob, get_weight_classes, get_odds_data, get_value_picks
 
 
 st.title("UFC Fight Outcome Predictor and Betting Value Checker")

@@ -1,11 +1,11 @@
 import numpy as np
 import torch
-from app_util import two_fighter_stats
+from .app_util import two_fighter_stats
 import joblib
-from model import predict, build_model
+from .model import predict, build_model
 import os
 import streamlit as st
-from app_util import odds_conversion
+from .app_util import odds_conversion
 
 @st.cache_resource
 def predict_fight(fighter1, fighter2, odds_data=None):
