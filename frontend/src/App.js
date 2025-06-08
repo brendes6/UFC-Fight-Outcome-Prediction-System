@@ -30,7 +30,7 @@ function App() {
     setLoading(true);
     setError('');
     try {
-      const response = await axios.get(`https://ufc-project.vercel.app//predict?fighter1=${encodeURIComponent(fighter1)}&fighter2=${encodeURIComponent(fighter2)}`);
+      const response = await axios.get(`https://ufc-project.vercel.app/predict?fighter1=${encodeURIComponent(fighter1)}&fighter2=${encodeURIComponent(fighter2)}`);
       if (response.data && response.data.predicted_probs) {
         setPredictions(response.data);
         setDisplayFighter1(fighter1);
