@@ -31,7 +31,6 @@ function App() {
     setError('');
     try {
       const response = await axios.get(`https://ufc-api-ptuh.onrender.com/predict?fighter1=${encodeURIComponent(fighter1)}&fighter2=${encodeURIComponent(fighter2)}`);
-      console.log("✅ RESPONSE:", response);
       if (response.data && response.data.predicted_probs) {
         setPredictions(response.data);
         setDisplayFighter1(fighter1);
