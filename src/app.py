@@ -1,6 +1,6 @@
 import streamlit as st
-from .fighter_predictions import predict_fight  
-from .app_util import get_all_fighters, implied_prob, get_weight_classes, get_odds_data, get_value_picks
+from fighter_predictions import predict_fight  
+from app_util import get_all_fighters, implied_prob, get_weight_classes, get_odds_data, get_value_picks
 
 
 st.title("UFC Fight Outcome Predictor and Betting Value Checker")
@@ -82,8 +82,12 @@ with st.sidebar.expander("How it Works"):
 with st.sidebar.expander("Recent Accuracy Tracker"):
     st.markdown("""
     **Fights since Apr 10:**
-     - Winner Predictions: 35/44 (79.5%)
-     - Outcome Predictions: 18/44 (40.9%)
+     - Winner Predictions: 43/53 (81.1%)
+     - Outcome Predictions: 21/53 (39.6%)
+                
+    ** UFC 316 **
+     - Winner Predictions: 8/9 (89%)
+     - Outcome Predictions: 3/9 (33%)
     
     ** UFC ON ESPN: Blanchfield v Barber**
      - Winner Predictions: 5/7 (71%)

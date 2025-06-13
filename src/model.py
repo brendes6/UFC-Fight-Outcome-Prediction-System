@@ -5,8 +5,8 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import numpy as np
-from .feature_engineering import get_X_y
-from .data_cleaning import get_clean_data
+from feature_engineering import get_X_y
+from data_cleaning import get_clean_data
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import joblib

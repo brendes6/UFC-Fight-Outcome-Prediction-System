@@ -1,4 +1,4 @@
-from .data_cleaning import calculate_metrics
+from data_cleaning import calculate_metrics
 import os
 import pandas as pd
 from bs4 import BeautifulSoup
@@ -211,7 +211,7 @@ def get_value_picks(odds_data, mean_outcome_pred, mean_winner_pred):
               "RedDecOdds", "BlueKOOdds", "BlueSubOdds", "BlueDecOdds", 
               "EitherKOOdds", "RedKOBlueSub", "RedKOBlueDec",
               "RedSubBlueKO", "EitherSubOdds", "RedSubBlueDec",
-              "RedDecBlueSub", "RedDecBlueKO", "EitherDecOdds"
+              "RedDecBlueKO", "RedDecBlueSub", "EitherDecOdds"
               ]
     
     labels = [
@@ -219,7 +219,7 @@ def get_value_picks(odds_data, mean_outcome_pred, mean_winner_pred):
         "Red to win by decision", "Blue to win by KO/TKO", "Blue to win by submission", "Blue to win by decision",
         "Either fighter to win by KO/TKO", "Red to win by KO/TKO OR Blue to win by submission", "Red to win by KO/TKO OR Blue to win by decision",
         "Red to win by submission OR Blue to win by KO", "Either fighter to win by submission", "Red to win by submission OR Blue to win by decision",
-        "Red to win by decision OR Blue to win by submission", "Red to win by decision OR Blue to win by KO/TKO", "Either fighter to win by decision"
+        "Red to win by decision OR Blue to win by KO/TKO", "Red to win by decision OR Blue to win by Submission", "Either fighter to win by decision"
     ]
 
 
