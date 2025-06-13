@@ -43,7 +43,9 @@ https://ufc-predictor-brendes6.streamlit.app/
 ```
 ufc-fight-outcome-prediction-system/
 ├── src/
-│    ├── app.py                  # Streamlit app frontend
+|    ├── app_util.py              # Contains methods to assist app.py
+│    ├── app.py                   # Streamlit app frontend
+|    ├── main.py                  # FastAPI root and /predict implementation
 │    ├── fighter_predictions.py   # Prediction logic (model loading and odds handling)
 │    ├── model.py                 # Neural network architecture and training functions
 │    ├── feature_engineering.py   # Feature creation and transformation
@@ -68,8 +70,8 @@ ufc-fight-outcome-prediction-system/
 
 ## Recent Accuracy:
     **Fights since Apr 10:**
-     - Winner Predictions: 30/37 (81%)
-     - Outcome Predictions: 15/37 (41%)
+     - Winner Predictions: 43/53 (81.1%)
+     - Outcome Predictions: 21/53 (39.6%)
 
 ## Future Plans
 
