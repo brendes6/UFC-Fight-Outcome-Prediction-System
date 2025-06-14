@@ -116,50 +116,60 @@ with st.sidebar.expander("Recent Accuracy Tracker"):
 
 with st.sidebar.expander("Upcoming Fight Predictions"):
     st.markdown("""
-        ** Dvalishvili v O'Malley: **
-        - Predicted Winner: Merab Dvalishvili (56% confidence)
-        - Predicted Outcome: Dvalishvili Decision (29.6%) 
-        - Value Picks: O'Malley ML (We say 44%, Vegas says 29%), Fight outcome being Submission (We say 30.5%, Vegas says 14.5%)
-                
-        ** Pena v Harrison: **
-        - Predicted Winner: Kayla Harrison (70% confidence)
-        - Predicted Outcome: Harrison Decision (31.9%) 
-        - Value Pick: Pena ML (We say 30%, Vegas says 18%)
-                
-        ** Gastelum v Pyfer: **
-        - Predicted Winner: Joe Pyfer (72% confidence)
-        - Predicted Outcome: Pyfer Decision (30.7%) 
-        - Value Pick: None
-                
-        ** Holland v Luque: **
-        - Predicted Winner: Kevin Holland (57% confidence)
-        - Predicted Outcome: Holland Decision (26.5%) 
-        - Value Pick: Luque ML (We say 43%, Vegas says 36%)
-                
-        ** Silva v Van: **
-        - Predicted Winner: Joshua Van (75% confidence)
-        - Predicted Outcome: Van Decision (31.6%) 
-        - Value Pick: None
+        ** Usman v Buckley: **
+        - Predicted Winner: Joaquin Buckley (56% confidence)
+        - Predicted Outcome: Buckley Decision (33.3%) 
+        - Value Pick: Red to win by decision OR Blue to win by Submission: Vegas says 20.8%, we say 29.7%. (Rec. 1.7% bankroll)            
 
-        ** Murzakanov v Ribeiro: **
-        - Predicted Winner: Azamat Murzakanov (80% confidence)
-        - Predicted Outcome: Murzakanov KO/TKO (43.1%) 
-        - Value Pick: Murzakanov Decision (We say 25.6%, Vegas says 14.3%)
+        ** Namajunas v Maverick: **
+        - Predicted Winner: Rose Namajunas (61% confidence)
+        - Predicted Outcome: Namajunas Decision (48.4%) 
+        - Value Pick: None            
 
-        ** Spivak v Cortes-Acosta: **
-        - Predicted Winner: Sergey Spivak (60% confidence)
-        - Predicted Outcome: Spivak Decision (26.7%) 
-        - Value Pick: Spivak KO/TKO (We say 21.1%, Vegas says 15.4%)
+        ** Shahbazyan v Petroski: **
+        - Predicted Winner: Andre Petroski (50% confidence)
+        - Predicted Outcome: Petroski KO/TKO (20.5%) 
+        - Value Pick: Red to win by submission OR Blue to win by KO: Vegas says 23.8%, we say 32.4%. (Rec. 1.7% bankroll)                 
                 
-        ** Lipski v Cong: **
-        - Predicted Winner: Wang Kong (73% confidence)
-        - Predicted Outcome: Kong KO/TKO (30.4%) 
-        - Value Pick: Lipski KO/TKO (We say 13.3%, Vegas says 6.2%)                
+        ** Garbrandt v Barcelos: **
+        - Predicted Winner: Raoni Barcelos (58% confidence)
+        - Predicted Outcome: Barcelos Decision (30.1%) 
+        - Value Pick: Garbrandt to win: Vegas says 32.8%, we say 41.7%. (Rec. 2% bankroll)              
+
+        ** Abdul-Malik v Brundage: **
+        - Predicted Winner: Mansur Abdul-Malik (68% confidence)
+        - Predicted Outcome: Abdul-Malik KO/TKO (38.3%) 
+        - Value Pick: None      
+                        
+        ** Menifield v Sy: **
+        - Predicted Winner: Oumar Sy (74% confidence)
+        - Predicted Outcome: Sy Decision (28.3%) 
+        - Value Pick: Menifield to win: Vegas says 16.9%, we say 25.6%. (Rec. 1.6% bankroll)                     
+                
+        ** Craig v Bellato: **
+        - Predicted Winner: Rodolfo Bellato (75% confidence)
+        - Predicted Outcome: Bellato KO/TKO (50.6%) 
+        - Value Pick: None                       
+
+        ** Chiesa v McGee: **
+        - Predicted Winner: Michael Chiesa (75% confidence)
+        - Predicted Outcome: Chiesa Decision (38.9%) 
+        - Value Pick: None                       
+
+        ** Simon v Smotherman: **
+        - Predicted Winner: Ricky Simon (91% confidence)
+        - Predicted Outcome: Simon Decision (53.5%) 
+        - Value Pick: Simon to win by decision: Vegas says 37.7%, we say 53.5%. (Rec. 3.8% bankroll)            
         
-        ** Salkilld v Ashmouz: **
-        - Predicted Winner: Quillian Salkilld (92% confidence)
-        - Predicted Outcome: Salkilld Decision (34.8%) 
-        - Value Picks: Salkilld KO/TKO (We say 30.2%, Vegas says 18.2%), Salkilld ML (We say 92%, Vegas says 80%)
+        ** Rowe v Loosa: **
+        - Predicted Winner: Phil Rowe (55% confidence)
+        - Predicted Outcome: Rowe Decision (44.3%) 
+        - Value Pick: Rowe to win by decision: Vegas says 26.7%, we say 44.3%. (Rec. 4.4% bankroll)          
+        
+        ** Horth v Demopoulos: **
+        - Predicted Winner: Jamey-Lyn Horth (76% confidence)
+        - Predicted Outcome: Horth Decision (55.4%) 
+        - Value Pick: None               
 """)
 
 gender = st.selectbox("Gender:", ["Male", "Female"], index=None, placeholder="Select a gender")

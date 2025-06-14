@@ -248,7 +248,9 @@ def get_value_picks(odds_data, mean_outcome_pred, mean_winner_pred):
     for i in range(len(all_outcomes)):
             vegas_implied = implied_prob(int(odds_data[values[i]]))
             if all_outcomes[i]  - vegas_implied > 0.02:
-                picks.append((labels[i] + f": Vegas says {vegas_implied*100:.1f}%, we say {all_outcomes[i]*100:.1f}%" , all_outcomes[i]  - vegas_implied))
+                b = (1/vegas_implied) - 1
+                kelly = 0.15 * ((b*all_outcomes[i] - (1-all_outcomes[i])) / b)
+                picks.append((labels[i] + f": Vegas says {vegas_implied*100:.1f}%, we say {all_outcomes[i]*100:.1f}%. Kelly says bet {kelly*100:.1f}% of your bankroll." , all_outcomes[i]  - vegas_implied))
 
     picks = sorted(picks, key=lambda x: x[1])[::-1]
 
