@@ -2,7 +2,7 @@ from data_cleaning import calculate_metrics
 import os
 import pandas as pd
 from bs4 import BeautifulSoup
-import streamlit as st
+
 
 # Get weight classes for the selected gender
 def get_weight_classes(gender):
@@ -88,16 +88,12 @@ def two_fighter_stats(fighter1, fighter2):
 
     return combined_data
 
-@st.cache_data
+
 def get_odds_data(red_fighter, blue_fighter):
     current_script_dir = os.path.dirname(__file__)
-    html_relative_path = os.path.join(current_script_dir, "..", "html_files", "odds_file.html")
-    with open(html_relative_path, 'r', encoding='utf-8') as f:
-        html = f.read()
+    odds_relative_path = os.path.join(current_script_dir, "..", "Data", "Cleaned", "odds_data.csv")
 
-    bs = BeautifulSoup(html, 'html.parser')
-
-    rows = bs.find_all('tr')
+    df = pd.read_csv(odds_relative_path)
 
     odds = {
         "RedOdds": None,
@@ -110,48 +106,17 @@ def get_odds_data(red_fighter, blue_fighter):
         "BlueDecOdds": None,
     }
 
-    # Fighters last names
-    red_fighter_name = red_fighter.split(" ")[1]
-    blue_fighter_name = blue_fighter.split(" ")[1]
+    red_df = df[df["Fighter"] == red_fighter].iloc[0]
+    blue_df = df[df["Fighter"] == blue_fighter].iloc[0]
 
-
-    for row in rows:
-        # If the row contains the red fighter's name
-        if row.text.find(red_fighter_name) > -1:
-            if row.text.find(f"{red_fighter_name} wins by TKO/KO+") > -1:
-                odds["RedKOOdds"] = int(row.text.split("+")[1].split("-")[0].split("▲")[0].split("▼")[0])
-            elif row.text.find(f"{red_fighter_name} wins by TKO/KO-") > -1:
-                odds["RedKOOdds"] = -1 * int(row.text.split("-")[1].split("+")[0].split("▲")[0].split("▼")[0])
-            elif row.text.find(f"{red_fighter_name} wins by submission+") > -1:
-                odds["RedSubOdds"] = int(row.text.split("+")[1].split("-")[0].split("▲")[0].split("▼")[0])
-            elif row.text.find(f"{red_fighter_name} wins by submission-") > -1:
-                odds["RedSubOdds"] = -1 * int(row.text.split("-")[1].split("+")[0].split("▲")[0].split("▼")[0])
-            elif row.text.find(f"{red_fighter_name} wins by decision+") > -1:
-                odds["RedDecOdds"] = int(row.text.split("+")[1].split("-")[0].split("▲")[0].split("▼")[0])
-            elif row.text.find(f"{red_fighter_name} wins by decision-") > -1:
-                odds["RedDecOdds"] = -1 * int(row.text.split("-")[1].split("+")[0].split("▲")[0].split("▼")[0])
-            elif row.text.find(f"{red_fighter_name}+") > -1:
-                odds["RedOdds"] = int(row.text.split("+")[1].split("-")[0].split("▲")[0].split("▼")[0])
-            elif row.text.find(f"{red_fighter_name}-") > -1:
-                odds["RedOdds"] = -1 * int(row.text.split("-")[1].split("+")[0].split("▲")[0].split("▼")[0])
-        # If the row contains the blue fighter's name
-        elif row.text.find(blue_fighter_name) > -1:
-            if row.text.find(f"{blue_fighter_name} wins by TKO/KO+") > -1:
-                odds["BlueKOOdds"] = int(row.text.split("+")[1].split("-")[0].split("▲")[0].split("▼")[0])
-            elif row.text.find(f"{blue_fighter_name} wins by TKO/KO-") > -1:
-                odds["BlueKOOdds"] = -1 * int(row.text.split("-")[1].split("+")[0].split("▲")[0].split("▼")[0])
-            elif row.text.find(f"{blue_fighter_name} wins by submission+") > -1:
-                odds["BlueSubOdds"] = int(row.text.split("+")[1].split("-")[0].split("▲")[0].split("▼")[0])
-            elif row.text.find(f"{blue_fighter_name} wins by submission-") > -1:
-                odds["BlueSubOdds"] = -1 * int(row.text.split("-")[1].split("+")[0].split("▲")[0].split("▼")[0])
-            elif row.text.find(f"{blue_fighter_name} wins by decision+") > -1:
-                odds["BlueDecOdds"] = int(row.text.split("+")[1].split("-")[0].split("▲")[0].split("▼")[0])
-            elif row.text.find(f"{blue_fighter_name} wins by decision-") > -1:
-                odds["BlueDecOdds"] = -1 * int(row.text.split("-")[1].split("+")[0].split("▲")[0].split("▼")[0])
-            elif row.text.find(f"{blue_fighter_name}+") > -1:
-                odds["BlueOdds"] = int(row.text.split("+")[1].split("-")[0].split("▲")[0].split("▼")[0])
-            elif row.text.find(f"{blue_fighter_name}-") > -1:
-                odds["BlueOdds"] = -1 * int(row.text.split("-")[1].split("+")[0].split("▲")[0].split("▼")[0])
+    odds["RedOdds"] = red_df["Odds"]
+    odds["BlueOdds"] = blue_df["Odds"]
+    odds["RedSubOdds"] = red_df["SubOdds"]
+    odds["BlueSubOdds"] = blue_df["SubOdds"]
+    odds["RedKOOdds"] = red_df["KOOdds"]
+    odds["BlueKOOdds"] = blue_df["KOOdds"]
+    odds["RedDecOdds"] = red_df["DecOdds"]
+    odds["BlueDecOdds"] = blue_df["DecOdds"]
 
     # If we have odds, calculat the 'either ...' odds
     if all(value != None for value in odds.values()):
@@ -192,16 +157,18 @@ def odds_conversion(predictions):
 
     return odds
 
-
-def check_valid_fighter(fighter1, fighter2):
+def is_fighter(val):
     current_script_dir = os.path.dirname(__file__)
     data_relative_path = os.path.join(current_script_dir, "..", "Data", "Cleaned", "fighter-stats.csv")
 
     data = pd.read_csv(data_relative_path)
+    return val in data["Fighter"].values
 
-    if fighter1 not in data["Fighter"].values:
+def check_valid_fighter(fighter1, fighter2):
+
+    if not is_fighter(fighter1):
         return fighter1
-    if fighter2 not in data["Fighter"].values:
+    if not is_fighter(fighter2):
         return fighter2
     return ""
 

@@ -364,6 +364,9 @@ def extract_fighter_stats():
                 
             fighter_df = pd.concat([fighter_df, pd.DataFrame([new_data])], ignore_index=True)
     
+    fighter_df["Fighter"] = fighter_df["Fighter"].str.replace(" Jr.", "", regex=False)
+
+
     fighter_df.to_csv("../Data/Cleaned/fighter-stats.csv", index=False)
 
     return fighter_df

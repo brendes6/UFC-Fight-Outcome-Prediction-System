@@ -82,8 +82,12 @@ with st.sidebar.expander("How it Works"):
 with st.sidebar.expander("Recent Accuracy Tracker"):
     st.markdown("""
     **Fights since Apr 10:**
-     - Winner Predictions: 43/53 (81.1%)
-     - Outcome Predictions: 21/53 (39.6%)
+     - Winner Predictions: 50/63 (79.3%)
+     - Outcome Predictions: 26/63 (41.2%)
+                
+    ** UFC Fight Night: Usman v Buckley **
+     - Winner Predictions: 7/10 (70%)
+     - Outcome Predictions: 5/10 (50%)
                 
     ** UFC 316 **
      - Winner Predictions: 8/9 (89%)

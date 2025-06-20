@@ -4,7 +4,10 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-
+from bs4 import BeautifulSoup
+from app_util import is_fighter
+import pandas as pd
+import os
 
 URL = "https://www.bestfightodds.com/"
 
@@ -37,9 +40,7 @@ def get_bfo_html():
         # Get the page source
         html = driver.page_source
 
-        # Save the HTML to a file
-        with open('../html_files/odds_file.html', 'w', encoding='utf-8') as f:
-            f.write(html)
+        form_odds_df(html)
 
     except Exception as e:
         print(f"Error: {e}")
@@ -49,7 +50,62 @@ def get_bfo_html():
             driver.quit()
         except:
             pass
+        
 
+
+
+
+
+def form_odds_df(html):
+
+    bs = BeautifulSoup(html, 'html.parser')
+
+
+    rows = bs.find_all('tr')
+
+
+    
+    cols = ["Fighter", "Odds", "KOOdds", "SubOdds", "DecOdds"]
+    
+    df = pd.DataFrame(columns=cols)
+    
+
+    for row in rows:
+        name = row.text.split("+")[0].split("-")[0]
+
+
+
+        if is_fighter(name):
+            placeholder_data = dict.fromkeys(cols, None)
+
+            placeholder_data["Fighter"] = name
+
+            last_name = "".join(name.split(" ")[1:])
+
+            for row in rows:
+                # If the row contains the red fighter's name
+                if row.text.find(last_name) > -1:
+                    if row.text.find(f"{last_name} wins by TKO/KO+") > -1:
+                        placeholder_data["KOOdds"] = int(row.text.split("+")[1].split("-")[0].split("▲")[0].split("▼")[0])
+                    elif row.text.find(f"{last_name} wins by TKO/KO-") > -1:
+                        placeholder_data["KOOdds"] = -1 * int(row.text.split("-")[1].split("+")[0].split("▲")[0].split("▼")[0])
+                    elif row.text.find(f"{last_name} wins by submission+") > -1:
+                        placeholder_data["SubOdds"] = int(row.text.split("+")[1].split("-")[0].split("▲")[0].split("▼")[0])
+                    elif row.text.find(f"{last_name} wins by submission-") > -1:
+                        placeholder_data["SubOdds"] = -1 * int(row.text.split("-")[1].split("+")[0].split("▲")[0].split("▼")[0])
+                    elif row.text.find(f"{last_name} wins by decision+") > -1:
+                        placeholder_data["DecOdds"] = int(row.text.split("+")[1].split("-")[0].split("▲")[0].split("▼")[0])
+                    elif row.text.find(f"{last_name} wins by decision-") > -1:
+                        placeholder_data["DecOdds"] = -1 * int(row.text.split("-")[1].split("+")[0].split("▲")[0].split("▼")[0])
+                    elif row.text.find(f"{last_name}+") > -1:
+                        placeholder_data["Odds"] = int(row.text.split("+")[1].split("-")[0].split("▲")[0].split("▼")[0])
+                    elif row.text.find(f"{last_name}-") > -1:
+                        placeholder_data["Odds"] = -1 * int(row.text.split("-")[1].split("+")[0].split("▲")[0].split("▼")[0])
+            
+            df = pd.concat([df, pd.DataFrame([placeholder_data])], ignore_index=True)
+                    
+            
+    df.to_csv("../Data/Cleaned/odds_data.csv")
 
 
 if __name__ == "__main__":
