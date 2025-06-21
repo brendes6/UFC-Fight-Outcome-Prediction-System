@@ -119,61 +119,36 @@ with st.sidebar.expander("Recent Accuracy Tracker"):
     """)
 
 with st.sidebar.expander("Upcoming Fight Predictions"):
-    st.markdown("""
-        ** Usman v Buckley: **
-        - Predicted Winner: Joaquin Buckley (56% confidence)
-        - Predicted Outcome: Buckley Decision (33.3%) 
-        - Value Pick: Red to win by decision OR Blue to win by Submission: Vegas says 20.8%, we say 29.7%. (Rec. 1.7% bankroll)            
-
-        ** Namajunas v Maverick: **
-        - Predicted Winner: Rose Namajunas (61% confidence)
-        - Predicted Outcome: Namajunas Decision (48.4%) 
-        - Value Pick: None            
-
-        ** Shahbazyan v Petroski: **
-        - Predicted Winner: Andre Petroski (50% confidence)
-        - Predicted Outcome: Petroski KO/TKO (20.5%) 
-        - Value Pick: Red to win by submission OR Blue to win by KO: Vegas says 23.8%, we say 32.4%. (Rec. 1.7% bankroll)                 
-                
-        ** Garbrandt v Barcelos: **
-        - Predicted Winner: Raoni Barcelos (58% confidence)
-        - Predicted Outcome: Barcelos Decision (30.1%) 
-        - Value Pick: Garbrandt to win: Vegas says 32.8%, we say 41.7%. (Rec. 2% bankroll)              
-
-        ** Abdul-Malik v Brundage: **
-        - Predicted Winner: Mansur Abdul-Malik (68% confidence)
-        - Predicted Outcome: Abdul-Malik KO/TKO (38.3%) 
-        - Value Pick: None      
-                        
-        ** Menifield v Sy: **
-        - Predicted Winner: Oumar Sy (74% confidence)
-        - Predicted Outcome: Sy Decision (28.3%) 
-        - Value Pick: Menifield to win: Vegas says 16.9%, we say 25.6%. (Rec. 1.6% bankroll)                     
-                
-        ** Craig v Bellato: **
-        - Predicted Winner: Rodolfo Bellato (75% confidence)
-        - Predicted Outcome: Bellato KO/TKO (50.6%) 
-        - Value Pick: None                       
-
-        ** Chiesa v McGee: **
-        - Predicted Winner: Michael Chiesa (75% confidence)
-        - Predicted Outcome: Chiesa Decision (38.9%) 
-        - Value Pick: None                       
-
-        ** Simon v Smotherman: **
-        - Predicted Winner: Ricky Simon (91% confidence)
-        - Predicted Outcome: Simon Decision (53.5%) 
-        - Value Pick: Simon to win by decision: Vegas says 37.7%, we say 53.5%. (Rec. 3.8% bankroll)            
+    st.markdown("""     
+        ** Hill v Rountree: **
+        - Predicted Winner: Jamahal Hill (59% confidence)
+        - Predicted Outcome: Hill KO/TKO (35.4%)
+        - Value Pick: Hill to win: Vegas says 47.6%, we say 59.4% (Rec. 3.4% bankroll)        
         
-        ** Rowe v Loosa: **
-        - Predicted Winner: Phil Rowe (55% confidence)
-        - Predicted Outcome: Rowe Decision (44.3%) 
-        - Value Pick: Rowe to win by decision: Vegas says 26.7%, we say 44.3%. (Rec. 4.4% bankroll)          
-        
-        ** Horth v Demopoulos: **
-        - Predicted Winner: Jamey-Lyn Horth (76% confidence)
-        - Predicted Outcome: Horth Decision (55.4%) 
-        - Value Pick: None               
+        ** Fiziev v Bahamondes: **
+        - Predicted Winner: Ignacio Bahamondes (62% confidence)
+        - Predicted Outcome: Bahamondes Decision (32.9%)
+        - Value Pick: Bahamondes to win: Vegas says 55.6%, we say 62.0% (Rec. 2.2% bankroll)
+
+        ** Sadykov v Motta: **
+        - Predicted Winner: Nazim Sadykov (78% confidence)
+        - Predicted Outcome: Sadykov KO/TKO (36.0%)
+        - Value Pick: Sadykov Decision: Vegas says 23.5%, we say 35.0% (Rec. 2.2% bankroll)         
+                
+        ** Naimov v Grad: **
+        - Predicted Winner: Muhammad Naimov (68% confidence)
+        - Predicted Outcome: Naimov Decision (30.6%) 
+        - Value Pick: None
+                
+        ** Naurdiev v Park: **
+        - Predicted Winner: Ismail Nurdaev (70% confidence)
+        - Predicted Outcome: Nurdaev Decision (28.3%)
+        - Value Pick: None   
+
+        ** Ulanbekov v Maksum: **
+        - Predicted Winner: Tagir Ulanbekov (80% confidence)
+        - Predicted Outcome: Chiesa Decision (33.7%) 
+        - Value Pick: Ulanbekov KO/TKO: Vegas says 6.7%, we say 24.4%. (Rec. 2.8% bankroll)                 
 """)
 
 gender = st.selectbox("Gender:", ["Male", "Female"], index=None, placeholder="Select a gender")
