@@ -69,20 +69,25 @@ def form_odds_df(html):
     
     df = pd.DataFrame(columns=cols)
     
+    i = 0
 
-    for row in rows:
+    for i, row in enumerate(rows):
         name = row.text.split("+")[0].split("-")[0]
 
-
-
-        if is_fighter(name):
+        if is_fighter(name.lower()):
             placeholder_data = dict.fromkeys(cols, None)
 
             placeholder_data["Fighter"] = name
 
             last_name = "".join(name.split(" ")[1:])
 
-            for row in rows:
+            try:
+                props = int(row.text.split("\t")[-1].split(" ")[-1])
+            except ValueError:
+                props = 0
+
+            for j in range(props):
+                row = rows[i+j]
                 # If the row contains the red fighter's name
                 if row.text.find(last_name) > -1:
                     if row.text.find(f"{last_name} wins by TKO/KO+") > -1:
@@ -102,7 +107,8 @@ def form_odds_df(html):
                     elif row.text.find(f"{last_name}-") > -1:
                         placeholder_data["Odds"] = -1 * int(row.text.split("-")[1].split("+")[0].split("▲")[0].split("▼")[0])
             
-            df = pd.concat([df, pd.DataFrame([placeholder_data])], ignore_index=True)
+            if props != 0:
+                df = pd.concat([df, pd.DataFrame([placeholder_data])], ignore_index=True)
                     
             
     df.to_csv("../Data/Cleaned/odds_data.csv")

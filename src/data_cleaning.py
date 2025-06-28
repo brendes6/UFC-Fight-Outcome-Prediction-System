@@ -273,7 +273,7 @@ def get_clean_data():
     df = get_defense_data(df)
     df = calculate_metrics(df)
     df = get_data_points(df)
-    df.to_csv("../Data/Cleaned/ufc-clean-outcomeodds.csv", index=False)
+    df.to_csv("../Data/Cleaned/ufc-clean.csv", index=False)
 
     return df
 

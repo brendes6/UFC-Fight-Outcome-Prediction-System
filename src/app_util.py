@@ -106,8 +106,8 @@ def get_odds_data(red_fighter, blue_fighter):
         "BlueDecOdds": None,
     }
 
-    red_df = df[df["Fighter"] == red_fighter].iloc[0]
-    blue_df = df[df["Fighter"] == blue_fighter].iloc[0]
+    red_df = df[df["Fighter"].str.lower() == red_fighter.lower()].iloc[0]
+    blue_df = df[df["Fighter"].str.lower() == blue_fighter.lower()].iloc[0]
 
     odds["RedOdds"] = red_df["Odds"]
     odds["BlueOdds"] = blue_df["Odds"]
@@ -162,6 +162,7 @@ def is_fighter(val):
     data_relative_path = os.path.join(current_script_dir, "..", "Data", "Cleaned", "fighter-stats.csv")
 
     data = pd.read_csv(data_relative_path)
+    data["Fighter"] = data["Fighter"].str.lower()
     return val in data["Fighter"].values
 
 def check_valid_fighter(fighter1, fighter2):

@@ -82,8 +82,12 @@ with st.sidebar.expander("How it Works"):
 with st.sidebar.expander("Recent Accuracy Tracker"):
     st.markdown("""
     **Fights since Apr 10:**
-     - Winner Predictions: 50/63 (79.3%)
-     - Outcome Predictions: 26/63 (41.2%)
+     - Winner Predictions: 53/69 (76.8%)
+     - Outcome Predictions: 29/69 (42%)
+                
+    ** UFC Fight Night: Hill v Rountree **
+     - Winner Predictions: 3/6 (50%)
+     - Outcome Predictions: 3/6 (50%)
                 
     ** UFC Fight Night: Usman v Buckley **
      - Winner Predictions: 7/10 (70%)
@@ -120,35 +124,52 @@ with st.sidebar.expander("Recent Accuracy Tracker"):
 
 with st.sidebar.expander("Upcoming Fight Predictions"):
     st.markdown("""     
-        ** Hill v Rountree: **
-        - Predicted Winner: Jamahal Hill (59% confidence)
-        - Predicted Outcome: Hill KO/TKO (35.4%)
-        - Value Pick: Hill to win: Vegas says 47.6%, we say 59.4% (Rec. 3.4% bankroll)        
-        
-        ** Fiziev v Bahamondes: **
-        - Predicted Winner: Ignacio Bahamondes (62% confidence)
-        - Predicted Outcome: Bahamondes Decision (32.9%)
-        - Value Pick: Bahamondes to win: Vegas says 55.6%, we say 62.0% (Rec. 2.2% bankroll)
-
-        ** Sadykov v Motta: **
-        - Predicted Winner: Nazim Sadykov (78% confidence)
-        - Predicted Outcome: Sadykov KO/TKO (36.0%)
-        - Value Pick: Sadykov Decision: Vegas says 23.5%, we say 35.0% (Rec. 2.2% bankroll)         
-                
-        ** Naimov v Grad: **
-        - Predicted Winner: Muhammad Naimov (68% confidence)
-        - Predicted Outcome: Naimov Decision (30.6%) 
+        ** Topuria vs Oliveira **
+        - Predicted Winner: Ilia Topuria (68% confidence)
+        - Predicted Outcome: Topuria KO/TKO (30.0%)
         - Value Pick: None
                 
-        ** Naurdiev v Park: **
-        - Predicted Winner: Ismail Nurdaev (70% confidence)
-        - Predicted Outcome: Nurdaev Decision (28.3%)
-        - Value Pick: None   
+        ** Royval vs Van: **
+        - Predicted Winner: Joshua Van (63% confidence)
+        - Predicted Outcome: Van Decision (30.0%)
+        - Value Pick: Van to win: Vegas says 48.8%, we say 62.7%. Kelly says bet 4.1% of your bankroll.       
 
-        ** Ulanbekov v Maksum: **
-        - Predicted Winner: Tagir Ulanbekov (80% confidence)
-        - Predicted Outcome: Chiesa Decision (33.7%) 
-        - Value Pick: Ulanbekov KO/TKO: Vegas says 6.7%, we say 24.4%. (Rec. 2.8% bankroll)                 
+        ** Dariush vs Moicano **
+        - Predicted Winner: Renato Moicano (54% confidence)
+        - Predicted Outcome: Moicano Decision (29.0%)
+        - Value Pick: None     
+
+        ** Talbott vs Lima **
+        - Predicted Winner: Payton Talbott (62% confidence)
+        - Predicted Outcome: Talbot KO/TKO (28.4%)
+        - Value Pick: Talbott to win: Vegas says 40.0%, we say 61.9%. Kelly says bet 5.5% of your bankroll.       
+
+        ** Amil vs Delgado **
+        - Predicted Winner: Hyder Amil (53% confidence)
+        - Predicted Outcome: Amil KO/TKO (36.2%)
+        - Value Pick: Amil to win by KO/TKO: Vegas says 22.7%, we say 36.2%. Kelly says bet 2.6% of your bankroll.
+        
+        ** Hermansson vs Rodriguez **
+        - Predicted Winner: Gregory Rodriguez (61% confidence)
+        - Predicted Outcome: Rodriguez Decision (28.5%)
+        - Value Pick: None
+                        
+        ** Araujo v Cortez: **
+        - Predicted Winner: Tracy Cortez (65% confidence)
+        - Predicted Outcome: Cortez Decision (59.1%)
+        - Value Pick: None       
+                
+        ** McKinney v Borschev: **
+        - Predicted Winner: Terrance McKinney (56% confidence)
+        - Predicted Outcome: Borschev KO/TKO (24.0%)
+        - Value Pick: Either fighter to win by decision: Vegas says 16.9%, we say 30.4%. Kelly says bet 2.4% of your bankroll.
+
+        ** Price v Smith: **
+        - Predicted Winner: Jacobe Smith (92% confidence)
+        - Predicted Outcome: Smith KO/TKO (56.4%)
+        - Value Pick: Smith to win by decision: Vegas says 13.3%, we say 24.7%. Kelly says bet 2.0% of your bankroll.        
+        
+                        
 """)
 
 gender = st.selectbox("Gender:", ["Male", "Female"], index=None, placeholder="Select a gender")
