@@ -7,7 +7,7 @@ import os
 import streamlit as st
 from app_util import odds_conversion
 
-@st.cache_resource
+
 def predict_fight(fighter1, fighter2, odds_data=None):
 
     # Check if odds data is provided
