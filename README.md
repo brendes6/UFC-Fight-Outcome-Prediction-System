@@ -64,6 +64,7 @@ ufc-fight-outcome-prediction-system/
 │    └── Cleaned/                # Cleaned data for model training
 │        ├── fighter_stats.csv   # Individual fighter statistics
 │        └── ufc-clean.csv       # Cleaned and processed fight data
+├── Dockerfile
 ├── requirements.txt
 ├── README.md
 ```
