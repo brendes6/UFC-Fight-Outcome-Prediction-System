@@ -13,7 +13,7 @@ def predict_fight(fighter1, fighter2, odds_data=None):
     # Check if odds data is provided
     if odds_data != None:
         current_script_dir = os.path.dirname(__file__)
-        scaler_relative_path = os.path.join(current_script_dir, "..", "Models", "Known_Odds", "scaler.pkl")
+        scaler_relative_path = os.path.join(current_script_dir,  "Models", "Known_Odds", "scaler.pkl")
         scaler, saved_order = joblib.load(scaler_relative_path)
         known_odds = True
     else:
@@ -22,7 +22,7 @@ def predict_fight(fighter1, fighter2, odds_data=None):
     # If odds data is not provided, use unknown odds
     if not known_odds:
         current_script_dir = os.path.dirname(__file__)
-        scaler_relative_path = os.path.join(current_script_dir, "..", "Models", "Unknown_Odds", "scaler.pkl")
+        scaler_relative_path = os.path.join(current_script_dir,  "Models", "Unknown_Odds", "scaler.pkl")
         scaler, saved_order = joblib.load(scaler_relative_path)
     
     df = two_fighter_stats(fighter1, fighter2)
@@ -49,14 +49,14 @@ def predict_fight(fighter1, fighter2, odds_data=None):
         winner_model = build_model(input_size=X_scaled.shape[1], output_size=2)
         if known_odds:
             current_script_dir = os.path.dirname(__file__)
-            outcome_model_relative_path = os.path.join(current_script_dir, "..", "Models", "Known_Odds", f"ufc_model_{i}.pth")
-            winner_model_relative_path = os.path.join(current_script_dir, "..", "Models", "Predicting_Winner_Odds", f"ufc_model_{i}.pth")
+            outcome_model_relative_path = os.path.join(current_script_dir,  "Models", "Known_Odds", f"ufc_model_{i}.pth")
+            winner_model_relative_path = os.path.join(current_script_dir,  "Models", "Predicting_Winner_Odds", f"ufc_model_{i}.pth")
             outcome_model.load_state_dict(torch.load(outcome_model_relative_path, map_location=torch.device("cpu")))
             winner_model.load_state_dict(torch.load(winner_model_relative_path, map_location=torch.device("cpu")))
         else:
             current_script_dir = os.path.dirname(__file__)
-            outcome_model_relative_path = os.path.join(current_script_dir, "..", "Models", "Unknown_Odds", f"ufc_model_{i}.pth")
-            winner_model_relative_path = os.path.join(current_script_dir, "..", "Models", "Predicting_Winner", f"ufc_model_{i}.pth")
+            outcome_model_relative_path = os.path.join(current_script_dir,  "Models", "Unknown_Odds", f"ufc_model_{i}.pth")
+            winner_model_relative_path = os.path.join(current_script_dir,  "Models", "Predicting_Winner", f"ufc_model_{i}.pth")
             outcome_model.load_state_dict(torch.load(outcome_model_relative_path, map_location=torch.device("cpu")))
             winner_model.load_state_dict(torch.load(winner_model_relative_path, map_location=torch.device("cpu")))
         outcome_model.eval()

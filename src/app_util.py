@@ -14,7 +14,7 @@ def get_weight_classes(gender):
 
 def get_all_fighters(weight_class, gender):
     current_script_dir = os.path.dirname(__file__)
-    data_relative_path = os.path.join(current_script_dir, "..", "Data", "Cleaned", "fighter-stats.csv")
+    data_relative_path = os.path.join(current_script_dir,  "Data", "Cleaned", "fighter-stats.csv")
 
     data = pd.read_csv(data_relative_path)
     if not weight_class:
@@ -28,7 +28,7 @@ def get_all_fighters(weight_class, gender):
 
 def two_fighter_stats(fighter1, fighter2):
     current_script_dir = os.path.dirname(__file__)
-    data_relative_path = os.path.join(current_script_dir, "..", "Data", "Cleaned", "fighter-stats.csv")
+    data_relative_path = os.path.join(current_script_dir,  "Data", "Cleaned", "fighter-stats.csv")
 
     data = pd.read_csv(data_relative_path)
 
@@ -91,7 +91,7 @@ def two_fighter_stats(fighter1, fighter2):
 
 def get_odds_data(red_fighter, blue_fighter):
     current_script_dir = os.path.dirname(__file__)
-    odds_relative_path = os.path.join(current_script_dir, "..", "Data", "Cleaned", "odds_data.csv")
+    odds_relative_path = os.path.join(current_script_dir,  "Data", "Cleaned", "odds_data.csv")
 
     df = pd.read_csv(odds_relative_path)
 
@@ -159,7 +159,7 @@ def odds_conversion(predictions):
 
 def is_fighter(val):
     current_script_dir = os.path.dirname(__file__)
-    data_relative_path = os.path.join(current_script_dir, "..", "Data", "Cleaned", "fighter-stats.csv")
+    data_relative_path = os.path.join(current_script_dir,  "Data", "Cleaned", "fighter-stats.csv")
 
     data = pd.read_csv(data_relative_path)
     data["Fighter"] = data["Fighter"].str.lower()
