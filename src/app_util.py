@@ -163,7 +163,7 @@ def is_fighter(val):
 
     data = pd.read_csv(data_relative_path)
     data["Fighter"] = data["Fighter"].str.lower()
-    return val in data["Fighter"].values
+    return val.lower() in data["Fighter"].values
 
 def check_valid_fighter(fighter1, fighter2):
 

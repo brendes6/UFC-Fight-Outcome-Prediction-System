@@ -74,7 +74,7 @@ def form_odds_df(html):
     for i, row in enumerate(rows):
         name = row.text.split("+")[0].split("-")[0]
 
-        if is_fighter(name.lower()):
+        if is_fighter(name):
             placeholder_data = dict.fromkeys(cols, None)
 
             placeholder_data["Fighter"] = name
