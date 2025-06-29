@@ -106,6 +106,9 @@ def get_odds_data(red_fighter, blue_fighter):
         "BlueDecOdds": None,
     }
 
+    if (red_fighter not in df["Fighter"].values) or (blue_fighter not in df["Fighter"].values):
+        return odds
+
     red_df = df[df["Fighter"].str.lower() == red_fighter.lower()].iloc[0]
     blue_df = df[df["Fighter"].str.lower() == blue_fighter.lower()].iloc[0]
 
