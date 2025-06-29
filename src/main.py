@@ -3,8 +3,18 @@ from pydantic import BaseModel
 from app_util import check_valid_fighter, get_odds_data, get_value_picks
 from fighter_predictions import predict_fight
 from typing import Dict, List
+from fastapi.middleware.cors import CORSMiddleware
+
+
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class PredictionResponse(BaseModel):
