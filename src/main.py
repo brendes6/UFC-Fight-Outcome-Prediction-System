@@ -58,3 +58,5 @@ def predict(fighter1: str, fighter2: str):
     
     else:
         raise HTTPException(status_code=404, detail=f"Error: {valid} is not a valid fighter")
+    
+
