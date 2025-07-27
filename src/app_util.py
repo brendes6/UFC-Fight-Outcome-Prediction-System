@@ -14,7 +14,7 @@ def get_weight_classes(gender):
 
 def get_all_fighters(weight_class, gender):
     current_script_dir = os.path.dirname(__file__)
-    data_relative_path = os.path.join(current_script_dir,  "Data", "Cleaned", "fighter-stats.csv")
+    data_relative_path = os.path.join(current_script_dir, "Data", "Cleaned", "fighter-stats.csv")
 
     data = pd.read_csv(data_relative_path)
     if not weight_class:
@@ -28,7 +28,7 @@ def get_all_fighters(weight_class, gender):
 
 def two_fighter_stats(fighter1, fighter2):
     current_script_dir = os.path.dirname(__file__)
-    data_relative_path = os.path.join(current_script_dir,  "Data", "Cleaned", "fighter-stats.csv")
+    data_relative_path = os.path.join(current_script_dir, "Data", "Cleaned", "fighter-stats.csv")
 
     data = pd.read_csv(data_relative_path)
 

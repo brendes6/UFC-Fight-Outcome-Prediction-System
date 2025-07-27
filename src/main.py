@@ -32,11 +32,10 @@ def predict(fighter1: str, fighter2: str):
 
     if valid == "":
         odds_data = get_odds_data(fighter1, fighter2)
+        mean_outcome_pred, mean_winner_pred, _, _ = predict_fight(fighter1, fighter2)
         if any(i==None for i in odds_data.values()):
             picks = ["No value picks available."]
-            mean_outcome_pred, mean_winner_pred, _, _ = predict_fight(fighter1, fighter2, odds_data=None)
         else:
-            mean_outcome_pred, mean_winner_pred, _, _ = predict_fight(fighter1, fighter2, odds_data=odds_data)
             picks = get_value_picks(odds_data, mean_outcome_pred, mean_winner_pred)
         
         response = {

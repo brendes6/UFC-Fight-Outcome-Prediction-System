@@ -19,7 +19,7 @@ def print_outcomes(red_fighter, blue_fighter, weight_class, betting_mode=False):
         odds_data = None
 
     # Get the predictions for the fight
-    mean_outcome_pred, mean_winner_pred, outcome_odds, winner_odds = predict_fight(red_fighter, blue_fighter, odds_data=odds_data)
+    mean_outcome_pred, mean_winner_pred, outcome_odds, winner_odds = predict_fight(red_fighter, blue_fighter)
 
     # Print the outcomes of the fight
     st.markdown(f"###  {red_fighter} vs {blue_fighter}")
@@ -82,8 +82,8 @@ with st.sidebar.expander("How it Works"):
 with st.sidebar.expander("Recent Accuracy Tracker"):
     st.markdown("""
     **Fights since Apr 10:**
-     - Winner Predictions: 53/69 (76.8%)
-     - Outcome Predictions: 29/69 (42%)
+     - Winner Predictions: 60/78 (76.9%)
+     - Outcome Predictions: 32/78 (41%)
                 
     ** UFC Fight Night: Hill v Rountree **
      - Winner Predictions: 3/6 (50%)

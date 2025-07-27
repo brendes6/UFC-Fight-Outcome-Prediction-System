@@ -12,6 +12,10 @@ def get_upcoming_predictions():
 
     rows = bs.find_all("a", href=True)
 
+    print(response)
+
+    url = ""
+
     for row in rows:
         href = row['href']
 
