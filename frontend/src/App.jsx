@@ -6,8 +6,8 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import SportsMmaIcon from '@mui/icons-material/SportsMma';
 import Home from './components/Home';
-import {Routes, Route} from "react-router-dom"
-//import Upcoming from './components/Home';
+// import {Routes, Route} from "react-router-dom"
+import Upcoming from './components/Home';
 
 const theme = createTheme({
   palette: {
