@@ -4,7 +4,6 @@ from app_util import two_fighter_stats
 import joblib
 from model import predict, build_model
 import os
-import streamlit as st
 from app_util import odds_conversion
 
 
