@@ -6,8 +6,6 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import SportsMmaIcon from '@mui/icons-material/SportsMma';
 import Home from './components/Home';
-// import {Routes, Route} from "react-router-dom"
-import Upcoming from './components/Home';
 
 const theme = createTheme({
   palette: {
@@ -61,8 +59,7 @@ function App() {
         }}
       >
         <Box sx={{ width: '100%', maxWidth: 564, px: 2 }}>
-          <Route path="/" element={Home} />
-          <Route path="/upcoming" element={Upcoming} />
+          <Home />
         </Box>
       </Box>
     </ThemeProvider>
