@@ -12,6 +12,7 @@ import os
 URL = "https://www.bestfightodds.com/"
 
 def get_bfo_html():
+    """Get the HTML of the Best Fight Odds page and parse it to form a DataFrame."""
 
     # Options for the driver to prevent 403
     chrome_options = Options()

@@ -4,29 +4,15 @@ import pandas as pd
 from bs4 import BeautifulSoup
 
 
-# Get weight classes for the selected gender
-def get_weight_classes(gender):
-    if gender == "Female":
-        return ["All", "Strawweight", "Flyweight", "Bantamweight"]
-    else:
-        return ["All", "Flyweight", "Bantamweight", "Featherweight", "Lightweight", "Welterweight", "Middleweight", "Light Heavyweight", "Heavyweight"]
-    
-
-def get_all_fighters(weight_class, gender):
-    current_script_dir = os.path.dirname(__file__)
-    data_relative_path = os.path.join(current_script_dir, "Data", "Cleaned", "fighter-stats.csv")
-
-    data = pd.read_csv(data_relative_path)
-    if not weight_class:
-        weight_class = "All"
-    if not gender:
-        gender = "Male"
-    if weight_class == "All":
-        return data[data["Gender"] == gender.upper()]["Fighter"].sort_values(ascending=True)
-    return data[(data["WeightClass"] == weight_class) & (data["Gender"] == gender.upper())]["Fighter"].sort_values(ascending=True)
-
-
 def two_fighter_stats(fighter1, fighter2):
+    """Get the stats for two fighters from the cleaned fighter stats CSV file.
+    
+    Input:
+        fighter1: Name of the first fighter.
+        fighter2: Name of the second fighter.   
+    Output:
+        A DataFrame containing the stats for both fighters.
+    """
     current_script_dir = os.path.dirname(__file__)
     data_relative_path = os.path.join(current_script_dir, "Data", "Cleaned", "fighter-stats.csv")
 
@@ -90,6 +76,15 @@ def two_fighter_stats(fighter1, fighter2):
 
 
 def get_odds_data(red_fighter, blue_fighter):
+    """Get the odds data for two fighters from the cleaned odds data CSV file.
+    
+    Input:
+        red_fighter: Name of the red fighter.
+        blue_fighter: Name of the blue fighter.   
+    Output:
+        A dictionary containing the odds data for both fighters.
+    
+    """
     current_script_dir = os.path.dirname(__file__)
     odds_relative_path = os.path.join(current_script_dir,  "Data", "Cleaned", "odds_data.csv")
 
@@ -177,6 +172,15 @@ def check_valid_fighter(fighter1, fighter2):
     return ""
 
 def get_value_picks(odds_data, mean_outcome_pred, mean_winner_pred):
+    """Get value picks based on the odds data and predictions.
+    Input:
+        odds_data: A dictionary containing the odds data for both fighters.
+        mean_outcome_pred: A list of predicted probabilities for each outcome.
+        mean_winner_pred: A list of predicted probabilities for the winner.
+    Output:
+        A list of value picks with explanations and Kelly Criterion recommendations.
+    
+    """
 
     values = ["RedOdds", "BlueOdds", "RedKOOdds", "RedSubOdds", 
               "RedDecOdds", "BlueKOOdds", "BlueSubOdds", "BlueDecOdds", 

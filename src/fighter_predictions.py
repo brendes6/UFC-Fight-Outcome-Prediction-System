@@ -8,6 +8,17 @@ from app_util import odds_conversion
 
 
 def predict_fight(fighter1, fighter2):
+    """Predict the fight outcome and winner between two fighters.
+    
+    Input:
+        fighter1: Name of the first fighter.
+        fighter2: Name of the second fighter.
+    Output:
+        outcome_predictions: Predicted probabilities for each fight outcome.
+        winner_predictions: Predicted probabilities for the winner.
+        outcome_odds: Odds based on the fight outcome predictions.
+        winner_odds: Odds based on the winner predictions.
+    """
 
     # Load in scaler
     current_script_dir = os.path.dirname(__file__)

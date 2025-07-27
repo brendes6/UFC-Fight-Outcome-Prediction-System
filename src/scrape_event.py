@@ -4,6 +4,7 @@ import pandas as pd
 
 
 def get_upcoming_predictions():
+    """Get predictions for upcoming UFC fights and save to CSV."""
 
 
     response = requests.get('https://www.ufc.com/events')

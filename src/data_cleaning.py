@@ -3,6 +3,13 @@ import numpy as np
 
 
 def get_elos_and_streaks(df):
+    """ Calculate ELO ratings and win streaks for fighters in the DataFrame.
+
+    Input:
+        df: DataFrame containing fight data
+    Output:
+        DataFrame with ELO ratings and win streaks added.
+    """
     fighter_elos = {}
     opponent_elos = {}
     fighter_finish_l5 = {}
@@ -99,6 +106,13 @@ def get_elos_and_streaks(df):
 
 
 def get_defense_data(df):
+    """Get defense data for fighters from the defense data CSV file.
+
+    Input:
+        df: DataFrame containing fight data
+    Output:
+        DataFrame with defense data added for both fighters.
+    """
     defense_df = pd.read_csv("../Data/Raw/defense_data.csv")
     
     # Merge for red fighter
@@ -125,6 +139,14 @@ def get_defense_data(df):
 
 
 def calculate_metrics(df, fighter_specific=False):
+    """Calculate various metrics for fighters in the DataFrame.
+
+    Input:
+        df: DataFrame containing fight data
+        fighter_specific: Boolean indicating if the metrics are for specific fighters
+    Output:
+        DataFrame with calculated metrics added.
+    """
 
 
     # Striking metrics
@@ -201,6 +223,13 @@ def calculate_metrics(df, fighter_specific=False):
     return df
 
 def get_data_points(df):
+    """Get the relevant data points from the DataFrame.
+
+    Input:
+        df: DataFrame containing fight data
+    Output:
+        DataFrame with selected data points for analysis.
+    """
     # Columns to keep in cleaned data
     data_points = [
         "RedFighter", "BlueFighter", "Winner", "WinnerName", "WeightClass", "Gender",
@@ -244,6 +273,13 @@ def get_data_points(df):
 
 
 def clean_up_data(df):
+    """Clean up the fight data DataFrame.
+
+    Input:
+        df: DataFrame containing fight data
+    Output:
+        DataFrame with cleaned data.
+    """
     # Standardize decision wins
     df["RedWinsByDecision"] = df["RedWinsByDecisionUnanimous"] + df["RedWinsByDecisionMajority"] + df["RedWinsByDecisionSplit"]
     df["BlueWinsByDecision"] = df["BlueWinsByDecisionUnanimous"] + df["BlueWinsByDecisionMajority"] + df["BlueWinsByDecisionSplit"]
@@ -265,6 +301,13 @@ def clean_up_data(df):
 
 
 def get_clean_data():
+    """Get the cleaned fight data DataFrame.
+
+    Input:
+        None
+    Output:
+        DataFrame with cleaned fight data.
+    """
 
     # Essentially pass data through all functions to clean it
     df = pd.read_csv("../Data/Raw/ufc-master.csv")
@@ -278,6 +321,13 @@ def get_clean_data():
     return df
 
 def extract_fighter_stats():
+    """Extract fighter statistics from the cleaned fight data CSV file.
+
+    Input:
+        None
+    Output:
+        DataFrame with fighter statistics.
+    """
     data = pd.read_csv("../Data/Cleaned/ufc-clean.csv")
 
     # Data points to extract

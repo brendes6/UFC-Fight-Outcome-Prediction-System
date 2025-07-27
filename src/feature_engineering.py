@@ -3,6 +3,17 @@ import joblib
 
 
 def get_X_y(df, prediction=False, known_odds=False, predicting_winner = False):
+    """Get the feature matrix X and target vector y from the DataFrame.
+
+    Input:
+        df: DataFrame containing fight data.
+        prediction: Boolean indicating if the function is used for prediction.
+        known_odds: Boolean indicating if the odds data is known.
+        predicting_winner: Boolean indicating if the model is predicting the winner.
+    Output:
+        X: Feature matrix.
+        y: Target vector (if not prediction).
+    """
 
     # Final features to pass into model
     final_features = [
