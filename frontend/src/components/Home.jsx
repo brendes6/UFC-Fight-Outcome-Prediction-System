@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getPredictions } from "./Call";
+import { getPredictions, spinUpBackend } from "./Call";
 import Prediction from "./Prediction";
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
@@ -9,6 +9,7 @@ import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 
 function Home() {
+  spinUpBackend();
   const [fighter1Query, setFighter1Query] = useState("");
   const [fighter2Query, setFighter2Query] = useState("");
   const [fightPrediction, setFightPrediction] = useState(null);

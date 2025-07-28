@@ -1,4 +1,14 @@
 
+export const spinUpBackend = async () => {
+  try {
+    const test = await fetch(
+      "https://brendes6-ufc-pred.onrender.com/"
+    );
+  }
+  catch (err) {
+    console.log(err);
+  }
+};
 
 export const getPredictions = async (fighter1, fighter2) => {
   try {
