@@ -1,0 +1,10 @@
+pandas
+SQLAlchemy
+fastapi
+pydantic
+google-cloud-aiplatform
+joblib
+uvicorn
+python-dotenv
+PyMySQL
+scikit-learn

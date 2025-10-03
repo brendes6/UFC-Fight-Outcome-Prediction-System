@@ -1,69 +1,90 @@
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
-import Grid from '@mui/material/Grid';
 import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
+import LinearProgress from '@mui/material/LinearProgress';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
-import SportsMmaIcon from '@mui/icons-material/SportsMma';
+import Divider from '@mui/material/Divider';
 
-function Prediction({ pred }) {
-  const probs = pred.predicted_probs || {};
+function ProbabilityBar({ value, color = 'primary' }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+      <Box sx={{ width: '100%', mr: 1 }}>
+        <LinearProgress variant="determinate" value={value * 100} color={color} sx={{ height: 8, borderRadius: 5 }} />
+      </Box>
+      <Box sx={{ minWidth: 45 }}>
+        <Typography variant="body2" color="text.secondary" fontWeight="bold">{`${(value * 100).toFixed(1)}%`}</Typography>
+      </Box>
+    </Box>
+  );
+}
+
+function Prediction({ pred, fighter1, fighter2 }) {
+  const probs = pred.predictions || [0, 0, 0, 0, 0, 0];
   const valuePicks = pred.value_picks || [];
 
-  const formatPercent = (value) => (value * 100).toFixed(1) + "%";
+  const fighter1TotalProb = probs[0] + probs[1] + probs[2];
+  const fighter2TotalProb = probs[3] + probs[4] + probs[5];
 
   return (
-    <Card elevation={4} sx={{ borderRadius: 3, bgcolor: 'background.paper' }}>
-      <CardContent>
-        <Typography variant="h5" align="center" fontWeight="bold" gutterBottom>
-          <SportsMmaIcon sx={{ mr: 1, color: 'primary.main' }} /> Fight Prediction
-        </Typography>
-        <Grid container spacing={3} sx={{ mb: 2 }}>
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ bgcolor: 'error.light', p: 2, borderRadius: 2 }}>
-              <Typography variant="subtitle1" fontWeight="bold" color="black" display="flex" alignItems="center">
-                <span style={{ fontSize: 22, marginRight: 0 }}></span> Red Fighter
-              </Typography>
-              <Typography sx={{ mt: 1 }}>
-                Win Probability: <strong>{formatPercent(probs["Red to Win"] ?? 0)}</strong>
-              </Typography>
-              <ul style={{ margin: '8px 0 0 18px', fontSize: 14 }}>
-                <li>KO/TKO: {formatPercent(probs["Red by KO"] ?? 0)}</li>
-                <li>Submission: {formatPercent(probs["Red by Sub"] ?? 0)}</li>
-                <li>Decision: {formatPercent(probs["Red by Dec"] ?? 0)}</li>
-              </ul>
+    <Card elevation={0} sx={{ borderRadius: 3, border: 1, borderColor: 'grey.800' }}>
+      <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+        {/* --- THIS IS THE FIX --- */}
+        {/* Replaced Grid with a Flexbox Box */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+
+          {/* Fighter 1 Column */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="h6" fontWeight="bold" noWrap>{fighter1}</Typography>
+            <Stack spacing={1.5} sx={{ mt: 2 }}>
+              <Typography variant="caption">To win by KO/TKO</Typography>
+              <ProbabilityBar value={probs[0]} />
+              <Typography variant="caption">To win by Submission</Typography>
+              <ProbabilityBar value={probs[1]} />
+              <Typography variant="caption">To win by Decision</Typography>
+              <ProbabilityBar value={probs[2]} />
+            </Stack>
+          </Box>
+
+          {/* VS & Total Probs Column */}
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="h5" fontWeight="900" color="text.secondary">VS</Typography>
+            <Box sx={{ my: 1 }}>
+              <Typography variant="h6" color="primary.main" fontWeight="bold">{`${(fighter1TotalProb * 100).toFixed(0)}%`}</Typography>
+              <Typography variant="h6" color="secondary.main" fontWeight="bold">{`${(fighter2TotalProb * 100).toFixed(0)}%`}</Typography>
             </Box>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ bgcolor: 'primary.light', p: 2, borderRadius: 2 }}>
-              <Typography variant="subtitle1" fontWeight="bold" color="black" display="flex" alignItems="center">
-                <span style={{ fontSize: 22, marginRight: 0 }}></span> Blue Fighter
-              </Typography>
-              <Typography sx={{ mt: 1 }}>
-                Win Probability: <strong>{formatPercent(probs["Blue to Win"] ?? 0)}</strong>
-              </Typography>
-              <ul style={{ margin: '8px 0 0 18px', fontSize: 14 }}>
-                <li>KO/TKO: {formatPercent(probs["Blue by KO"] ?? 0)}</li>
-                <li>Submission: {formatPercent(probs["Blue by Sub"] ?? 0)}</li>
-                <li>Decision: {formatPercent(probs["Blue by Dec"] ?? 0)}</li>
-              </ul>
-            </Box>
-          </Grid>
-        </Grid>
-        <Box sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 2 }}>
-          <Typography variant="subtitle2" fontWeight="bold" color="black" display="flex" alignItems="center" mb={1}>
-            <EmojiEventsIcon sx={{ mr: 1, color: 'goldenrod' }} /> Value Picks:
-          </Typography>
-          {valuePicks.length === 0 || valuePicks[0] === "No value picks available." ? (
-            <Typography color="black">No value picks found for this matchup - Try an upcoming fight for value picks!</Typography>
-          ) : (
-            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14 }}>
-              {valuePicks.map((pick, i) => (
-                <Typography color="black">{pick}<br/><br/></Typography>
-              ))}
-            </ul>
-          )}
+          </Box>
+          
+          {/* Fighter 2 Column */}
+          <Box sx={{ flex: 1, textAlign: 'right', minWidth: 0 }}>
+             <Typography variant="h6" fontWeight="bold" noWrap>{fighter2}</Typography>
+             <Stack spacing={1.5} sx={{ mt: 2, alignItems: 'flex-end' }}>
+              <Typography variant="caption">To win by KO/TKO</Typography>
+              <ProbabilityBar value={probs[3]} color="secondary" />
+              <Typography variant="caption">To win by Submission</Typography>
+              <ProbabilityBar value={probs[4]} color="secondary" />
+              <Typography variant="caption">To win by Decision</Typography>
+              <ProbabilityBar value={probs[5]} color="secondary" />
+
+            </Stack>
+          </Box>
+
         </Box>
+        {/* --- END FIX --- */}
+        
+        {/* Value Picks */}
+        {valuePicks.length > 0 && valuePicks[0] !== "No value picks available." && (
+          <Box sx={{ mt: 3 }}>
+            <Divider sx={{ mb: 2 }} />
+            <Typography variant="subtitle1" fontWeight="bold" color="goldenrod" display="flex" alignItems="center" mb={1}>
+              <EmojiEventsIcon sx={{ mr: 1 }} /> Value Picks
+            </Typography>
+            {valuePicks.map((pick, i) => (
+              <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>- {pick}</Typography>
+            ))}
+          </Box>
+        )}
       </CardContent>
     </Card>
   );

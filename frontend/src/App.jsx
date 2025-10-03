@@ -4,18 +4,21 @@ import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import SportsMmaIcon from '@mui/icons-material/SportsMma';
+import QueryStatsIcon from '@mui/icons-material/QueryStats';
 import Home from './components/Home';
 
 const theme = createTheme({
   palette: {
     mode: 'dark',
-    primary: { main: '#d32f2f' }, // UFC red
-    secondary: { main: '#1976d2' }, // UFC blue
-    background: { default: '#181818', paper: '#232323' },
+    primary: { main: '#00AEEF' },
+    secondary: { main: '#90CAF9' },
+    background: { default: '#121212', paper: '#1E1E1E' },
+    text: { primary: '#E0E0E0', secondary: '#BDBDBD' },
   },
   typography: {
-    fontFamily: 'Roboto, Arial, sans-serif',
+    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+    h5: { fontWeight: 700 },
+    h6: { fontWeight: 600 },
   },
 });
 
@@ -23,43 +26,29 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AppBar
-        position="static"
-        elevation={0}
-        sx={{
-          background: 'linear-gradient(90deg, #d32f2f 0%, #232323 100%)',
-          borderBottom: '4px solid #FFD700',
-          boxShadow: '0 2px 12px 0 rgba(0,0,0,0.25)',
-        }}
-      >
-        <Toolbar sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <Typography
-            variant="h5"
-            component="div"
-            sx={{
-              fontWeight: 900,
-              letterSpacing: 2,
-              fontSize: { xs: '1.1rem', sm: '1.5rem' },
-              color: 'white',
-              textShadow: '1px 1px 8px #000',
-            }}
-          >
-            UFC Fight Outcome Predictor and Betting Value Detector
-          </Typography>
-        </Toolbar>
-      </AppBar>
-      <Box
-        sx={{
-          minHeight: '100vh',
-          width: '100vw',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'radial-gradient(circle at 50% 30%, #232323 60%, #181818 100%)',
-        }}
-      >
-        <Box sx={{ width: '100%', maxWidth: 564, px: 2 }}>
-          <Home />
+      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <AppBar position="static" color="transparent" elevation={0} sx={{ borderBottom: 1, borderColor: 'grey.800' }}>
+          <Toolbar>
+            <QueryStatsIcon sx={{ color: 'primary.main', fontSize: 30, mr: 1.5 }} />
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
+              UFC Fight Prediction System
+            </Typography>
+          </Toolbar>
+        </AppBar>
+        
+        {/* Main content area */}
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1, // Takes up all available vertical space
+            display: 'flex', // Enables flexbox for its children
+            p: 3,
+          }}
+        >
+          {/* This is the key change. `margin: 'auto'` centers this Box within the parent. */}
+          <Box sx={{ width: '100%', maxWidth: 600, margin: 'auto' }}>
+            <Home />
+          </Box>
         </Box>
       </Box>
     </ThemeProvider>
@@ -67,4 +56,3 @@ function App() {
 }
 
 export default App;
-

@@ -1,19 +1,8 @@
 
-export const spinUpBackend = async () => {
-  try {
-    const test = await fetch(
-      "https://brendes6-ufc-pred.onrender.com/"
-    );
-  }
-  catch (err) {
-    console.log(err);
-  }
-};
-
 export const getPredictions = async (fighter1, fighter2) => {
   try {
     const response = await fetch(
-      `https://brendes6-ufc-pred.onrender.com/predict?fighter1=${encodeURIComponent(fighter1)}&fighter2=${encodeURIComponent(fighter2)}`
+      `https://ufc-predictor-api-685306641609.us-central1.run.app/predict?fighter1=${encodeURIComponent(fighter1)}&fighter2=${encodeURIComponent(fighter2)}`
     );
 
     if (!response.ok) {
