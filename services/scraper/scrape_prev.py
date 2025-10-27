@@ -14,13 +14,6 @@ is_most_recent = True
 
 
 def scrape_previous_fights():
-    """
-    Scrapes the most recent UFC event from ufcstats.com and returns a DataFrame with fight details.
-
-    Note: This scraper is based on + heavily revised from the original:
-    https://www.kaggle.com/datasets/mdabbert/ultimate-ufc-dataset
-
-    """
     response = requests.get('http://ufcstats.com/statistics/events/completed')
 
     bs = BeautifulSoup(response.content, "html.parser")
@@ -52,7 +45,7 @@ def scrape_previous_fights():
 
     bs=BeautifulSoup(html, 'html.parser')
 
-    # Get a List of all the fight links
+    ###HERE WE ARE GOING TO GET A LIST 
 
     did_red_lose_list = []
     winner_list = []
@@ -89,6 +82,7 @@ def scrape_previous_fights():
                 else:
                     did_red_lose_list.append(False)
                     winner_list.append('Red')
+                #print(fight_result.get_text())
             prev_link = link
 
     fights = bs.find_all('td', {'class':'b-fight-details__table-col l-page_align_left'})
@@ -160,6 +154,8 @@ def scrape_previous_fights():
     for dr in date_raw:
         temp_count=0
         for child in dr.children:
+            #print(child.string)
+            #print(temp_count, child_count)
             if ((temp_count == 2) & (child_count == 0)):
                 raw_date = (child.string.strip())
             if ((temp_count == 2) & (child_count == 1)):
@@ -246,6 +242,7 @@ def scrape_previous_fights():
             
     round_list[0] = 5
 
+    #print(round_list)
 
     df['NumberOfRounds'] = round_list
 
@@ -264,6 +261,8 @@ def scrape_previous_fights():
             if (count+1) % 3 == 0:
                 #There are 2 paragraphs here.  One with the finish.  The other with the 
                 temp_finish_list = t.find_all('p')
+                #print(count)
+                #print(t)
                 finish_list.append(temp_finish_list[0].get_text().strip())
                 finish_details_list.append(temp_finish_list[1].get_text().strip())
             count = count+1
@@ -279,9 +278,15 @@ def scrape_previous_fights():
         
         count = 0
         for t in temp_list:
+            #print(f"COUNT: {count}")
+            #print(t)
         
             if (count) % 10 == 8:
+                #There are 2 paragraphs here.  One with the finish.  The other with the 
+                #print(count)
+                #print(t)
                 finish_round_list.append(t.get_text().strip())
+                #finish_details_list.append(temp_finish_list[1].get_text().strip())
             elif (count) % 10 == 9:
                 time_list.append(t.get_text().strip())
             count = count+1
@@ -377,6 +382,9 @@ def scrape_previous_fights():
 
 
     for z in range(number_of_fights):
+        #print("new fight")
+        #print(did_red_lose_list[z])
+        #If red lost these are flipped
         if(did_red_lose_list[z]):
             b_fighter_file=open(os.path.join(current_script_dir, f'fighter_pages/r{z}.html'), "r")
         else:
@@ -391,7 +399,9 @@ def scrape_previous_fights():
         
         
         
-
+        ###We need to deal with removing historic fights
+        ###Maybe just make a date list????
+        
         
         
         
@@ -466,6 +476,8 @@ def scrape_previous_fights():
         #Determine the type of win for BLUE
         temp_count = 0
         for b in blue_rounds_raw:
+            #print(temp_count)
+            #print(b.get_text())
             temp_count+=1
             
         #OK so it lists win or loss at 6, 23, 40...etc....
@@ -519,6 +531,14 @@ def scrape_previous_fights():
         blue_total_un_dec.append(dec_un_count)
         blue_total_ko.append(ko_count)
         blue_total_sub.append(sub_count)
+                #if (temp_count - 4) % 17 == 0:
+        #            #print(b.get_text().strip())
+        #            round_raw = b.get_text()
+        #            round_stripped = round_raw.strip()
+        #            round_count+=int(round_stripped)
+        #            #print(round_count)
+        #    temp_count+=1
+        #blue_total_rounds.append(round_count)
         ################################################################
 
 
@@ -548,6 +568,8 @@ def scrape_previous_fights():
                 event_date_parsed = parse(formatted_date)
                 fight_date_parsed = parse(d)
                 if fight_date_parsed < event_date_parsed:
+                    #print(f"{fight_date_parsed} is earlier than {event_date_parsed}")                
+                    #print(r)
                     if r=='draw':
                         draw_count+=1        
                     if end_streak == False:
@@ -605,6 +627,7 @@ def scrape_previous_fights():
         #So that is (count - 4) % 17 = 0
         
         red_rounds_raw = red_soup.find_all('tr', {'class':'b-fight-details__table-row'})
+        #print(f"Fight rows: {len(blue_fight_dates_raw)}")
         red_round_count = 0
         for row_temp in red_rounds_raw:
             pos_dates = row_temp.find_all('p', {'class': 'b-fight-details__table-text'})
@@ -620,6 +643,7 @@ def scrape_previous_fights():
         ################################################################
 
         red_fight_dates_raw = red_soup.find_all('tr', {'class':'b-fight-details__table-row'})
+        #print(f"Fight rows: {len(red_fight_dates_raw)}")
         for row_temp in red_fight_dates_raw:
             pos_dates = row_temp.find_all('p', {'class': 'b-fight-details__table-text'})
             if len(pos_dates) > 16:
@@ -631,7 +655,9 @@ def scrape_previous_fights():
         #Red total title bouts.  We are looking for 'belt.png'
         title_bout_count = 0
         
+        #print(blue_soup)
         title_bout_count = str(red_soup).count('belt.png')
+        #print(title_bout_count)
         #If the upcoming fight is a title bout we need to subtract 1
         if(df.iloc[z]['TitleBout']):
             title_bout_count -= 1
@@ -699,7 +725,10 @@ def scrape_previous_fights():
         red_total_ko.append(ko_count)
         red_total_sub.append(sub_count)
 
-        ################################################################
+
+
+
+
 
         win_streak = 0
         lose_streak =0
@@ -716,7 +745,6 @@ def scrape_previous_fights():
                 event_date_parsed = parse(formatted_date)
                 fight_date_parsed = parse(d)
                 if fight_date_parsed < event_date_parsed:
-
                     if r=='draw':
                         draw_count+=1        
                     if end_streak == False:
@@ -768,24 +796,32 @@ def scrape_previous_fights():
 
         red_strikes_raw = red_soup.find_all('li',
                                 {'class':'b-list__box-list-item b-list__box-list-item_type_block'})
-
+        
+        #print()
+        #print()
+        #print()
         s_count = 0
         for s in blue_strikes_raw:
             if s_count == 5:
                 blue_strikes = str(s)
                 blue_strikes = blue_strikes.split('</i>')
                 blue_strikes = blue_strikes[1]
+                #print(temp)
                 #There is a tag at the end we need to strip
                 blue_strikes = blue_strikes[:-5]
                 blue_strikes=blue_strikes.strip()
+                #print(blue_strikes.strip())
                 blue_strike_list.append(blue_strikes)
+                #print(s)   
             if s_count == 6:
                 blue_str_acc = str(s)
                 blue_str_acc = blue_str_acc.split('</i>')
                 blue_str_acc = blue_str_acc[1]
+                #print(temp)
                 #There is a tag at the end we need to strip
                 blue_str_acc = blue_str_acc[:-5]
                 blue_str_acc=blue_str_acc.strip()
+                #print(blue_strikes.strip())
                 blue_strike_acc_list.append('.'+blue_str_acc[:-1])
                 #print(s)   
             else:
@@ -855,6 +891,11 @@ def scrape_previous_fights():
             #print(s_count)
             #print(s)
             s_count+=1
+        #print()
+        #print()
+        #print()
+
+
 
         s_count = 0
         for s in red_strikes_raw:
@@ -862,16 +903,24 @@ def scrape_previous_fights():
                 red_strikes = str(s)
                 red_strikes = red_strikes.split('</i>')
                 red_strikes = red_strikes[1]
+                #print(temp)
+                #There is a tag at the end we need to strip
                 red_strikes = red_strikes[:-5]
                 red_strikes=red_strikes.strip()
+                #print(blue_strikes.strip())
                 red_strike_list.append(red_strikes)
+                #print(len(red_strike_list))
             if s_count == 6:
                 red_str_acc = str(s)
                 red_str_acc = red_str_acc.split('</i>')
                 red_str_acc = red_str_acc[1]
+                #print(temp)
+                #There is a tag at the end we need to strip
                 red_str_acc = red_str_acc[:-5]
                 red_str_acc=red_str_acc.strip()
+                #print(blue_strikes.strip())
                 red_strike_acc_list.append('.'+red_str_acc[:-1])
+                #print(s)   
             else:
                 #I think we can get the value without caring too
                 #much what it is..... This should save some coding
@@ -903,6 +952,9 @@ def scrape_previous_fights():
                     height_tuple = isolate_stat.split(" ")
                     total_inches = int(height_tuple[0])*12 + int(height_tuple[1])
                     height_in_cm = total_inches * 2.54
+                    #print(height_tuple)
+                    #print(total_inches)
+                    #print(height_in_cm)
                     red_height_list.append(height_in_cm)
                 if s_count == 2:
                     #Reach
@@ -913,7 +965,10 @@ def scrape_previous_fights():
                         reach_in_cm = int(isolate_stat) * 2.54
                     red_reach_list.append(reach_in_cm)
                 if s_count == 1:
+                    #weight
+                    #print(isolate_stat)
                     isolate_stat = isolate_stat.replace(" lbs.", '')
+                    #print(isolate_stat)
                     red_weight_list.append(isolate_stat)
                 if s_count == 4:
                     #Age
@@ -926,6 +981,15 @@ def scrape_previous_fights():
 
 
             s_count+=1
+
+
+
+
+
+    #THESE MIGHT BE FLIPPED!
+
+
+    #Here we add all the lists to the dataframe    
 
     if (is_most_recent):
         df['Finish'] =  finish_list
@@ -1054,7 +1118,6 @@ def scrape_previous_fights():
 
 
 def clean_up_data():
-    """ Cleans up the scraped data via our clean_data.py functions """
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
     df = pd.read_csv(os.path.join(current_script_dir, "scraped_event.csv"))
     df = data_cleaning.clean_up_data(df)
@@ -1068,7 +1131,6 @@ def clean_up_data():
     return df
 
 def update_db():
-    """ Updates the database with the cleaned data """
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
     stats_relative_path = os.path.join(current_script_dir, "fighter_stats.csv")
     df = pd.read_csv(stats_relative_path)

@@ -11,6 +11,13 @@ import Collapse from '@mui/material/Collapse';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
+const cachedFights = [
+  { f1: "Merab Dvalishvili", f2: "Umar Nurmagomedov" },
+  { f1: "Alexandre Pantoja", f2: "Joshua Van" },
+  { f1: "Alex Pereira", f2: "Carlos Ulberg" },
+  { f1: "Khamzat Chimaev", f2: "Anthony Hernandez" },
+];
+
 
 function Home() {
   const [fighter1Query, setFighter1Query] = useState("");
@@ -19,6 +26,11 @@ function Home() {
   const [fightPrediction, setFightPrediction] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const handleCachedSearch = (f1, f2) => {
+    setFighter1Query(f1);
+    setFighter2Query(f2);
+  };
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -42,6 +54,28 @@ function Home() {
       <Typography variant="h5" component="h1" sx={{ textAlign: 'center', mb: 3 }}>
         Predict a Matchup
       </Typography>
+      <Typography variant="h6" component="h2" sx={{ textAlign: 'center', mb: 2, fontSize: '1rem' }}>
+        Update as of Oct 27, 2025:
+      </Typography>
+      <Typography variant="h6" component="h2" sx={{ textAlign: 'center', mb: 2, fontSize: '1rem' }}>
+        Unfortunately, hosting a PyTorch-based fight prediction model as an API in the cloud is a high expense for a college student. I have stored
+        a few cached results for you use to see how the app works. If interested, the GitHub repo for this project
+        can be found <a href="https://github.com/brendes6/UFC-Fight-Outcome-Prediction-System"> here. </a>
+      </Typography>
+      <Stack direction="row" spacing={1} justifyContent="center" sx={{ mb: 3, flexWrap: 'wrap' }}>
+        {cachedFights.map((fight, index) => (
+          <Button
+            key={index}
+            variant="outlined"
+            size="small"
+            onClick={() => handleCachedSearch(fight.f1, fight.f2)}
+            sx={{ m: 0.5 }}
+          >
+            Cached Result #{index + 1}
+          </Button>
+        ))}
+      </Stack>
+
       <Box component="form" onSubmit={handleSearch}>
         <Stack spacing={2}>
           <TextField

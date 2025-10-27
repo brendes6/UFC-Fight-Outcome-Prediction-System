@@ -3,7 +3,6 @@ from sqlalchemy.orm import relationship
 from .database import Base
 
 class Fighter(Base):
-    """SQLAlchemy model for the fighters table."""
     __tablename__ = "fighters"
 
     id = Column(Integer, primary_key=True, index=True)

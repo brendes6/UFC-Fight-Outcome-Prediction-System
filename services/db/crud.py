@@ -2,17 +2,17 @@ from sqlalchemy.orm import Session
 from . import models
 
 def get_fighter_by_name(db: Session, name: str):
-    """Retrieve a fighter by their name."""
+    # Retrieve a fighter obect from our DB from fighter name
     return db.query(models.Fighter).filter(models.Fighter.name == name).first()
 
 
 def get_fighter_id(db: Session, fighter_name: str):
-    """Retrieve a fighter's ID by their name."""
+    # Get fighter ID from fighter name
     fighter = db.query(models.Fighter).filter(models.Fighter.name == fighter_name).first()
     return fighter.id if fighter else None
 
 def remove_fighter(db: Session, fighter_name: str):
-    """Remove a fighter by their name."""
+    # Remove a fighter from our database
     fighter = db.query(models.Fighter).filter(models.Fighter.name == fighter_name).first()
     if fighter is None:
         return None
@@ -53,7 +53,8 @@ def add_fighter(
         total_rounds_fought: int,
         weight_class: str,
         gender: str):
-    """Add a new fighter to the database."""
+    
+    # Add a fighter to our database
     fighter = models.Fighter(
         name=name,
         wins=wins,
@@ -91,4 +92,3 @@ def add_fighter(
     db.commit()
     db.refresh(fighter)
     return fighter
-

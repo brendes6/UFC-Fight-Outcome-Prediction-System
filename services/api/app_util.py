@@ -10,6 +10,7 @@ def two_fighter_stats(fighter1, fighter2):
     Output:
         A DataFrame containing the stats for both fighters.
     """
+    # Get our database and both fighters data
     db = next(database.get_db())
 
     fighter1_data = crud.get_fighter_by_name(db, fighter1)
@@ -20,6 +21,7 @@ def two_fighter_stats(fighter1, fighter2):
     if fighter2_data is None:
         raise ValueError(f"Fighter {fighter2} not found in database.")
 
+    # Use 2 different lists for dataframe vs database values
     values = [
         "Fighter", "Wins", "WinsByKO", "WinsBySubmission", 
         "WinsByDecision", "Losses", "HeightCms", 
@@ -66,6 +68,7 @@ def two_fighter_stats(fighter1, fighter2):
         "total_rounds_fought",
     ]
 
+    # Map red and blue values
     mapping = dict(zip(values, db_vals))
 
     red_values = ["Red" + val for val in values]
@@ -89,6 +92,7 @@ def two_fighter_stats(fighter1, fighter2):
 
 
     
+    # Combine dataframes, calculate metrics for fighters
     if not pd.DataFrame([new_data]).isna().all(axis=1).any():
         combined_data = pd.concat([combined_data, pd.DataFrame([new_data])], ignore_index=True)
 

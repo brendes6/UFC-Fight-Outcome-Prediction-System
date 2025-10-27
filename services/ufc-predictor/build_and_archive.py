@@ -4,9 +4,9 @@ import torch.nn.functional as F
 import os
 import subprocess
 import shutil
-import inspect # Added this import
+import inspect
 
-# --- CONFIGURATION ---
+# Configuring variables of our model
 NUM_FEATURES = 56
 OUTPUT_SIZE = 6 
 WEIGHTS_FILE_PATH = 'model.pth' # Make sure this path is correct
@@ -14,7 +14,7 @@ BUILD_DIR = 'final_model_package_statedict'
 MAR_EXPORT_PATH = 'model_store'
 MODEL_VERSION = '2.0'
 
-# --- STEP 1: Your model class ---
+# Our custom model class
 class NN(nn.Module):
     def __init__(self, input_size, output_size):
         super(NN, self).__init__()
@@ -39,7 +39,9 @@ class NN(nn.Module):
         x = self.fc4(x)
         return x
 
-# --- STEP 2: The FINAL handler content ---
+# Due to TorchServe restrictions on using a seperate model class in the same
+# file as our handler, we turn essentially our entire handler
+# script into a string that will be created and ran in a coming function.
 HANDLER_CONTENT = """
 import torch
 import torch.nn.functional as F
@@ -64,14 +66,10 @@ class UfcModelHandler(BaseHandler):
         print("UFC model loaded from state_dict successfully.")
 
     def preprocess(self, data):
-        # The data is a list of requests. We'll process the first one.
         instances = data[0]
         
         # Create the tensor
         tensor = torch.tensor(instances, dtype=torch.float32).to(self.device)
-        
-        # --- THIS IS THE FIX ---
-        # Ensure the tensor is 2D (a batch of inputs)
         if tensor.dim() == 1:
             tensor = tensor.unsqueeze(0)
             
@@ -84,14 +82,13 @@ class UfcModelHandler(BaseHandler):
         return output
 
     def postprocess(self, inference_output):
-        # Postprocess converts the tensor to a JSON-friendly list
-        # and can apply softmax if desired.
+        # Postprocess converts the tensor to a JSON-friendly list and applies softmax
         probabilities = F.softmax(inference_output, dim=1)
         return [{"predictions": probabilities.tolist()}]
 """
 
-# --- STEP 3: The Main Build Function ---
-# (No changes needed here)
+# Our build function. This builds our custom handler and
+# execute model archiver in a seperate directory from this service.
 def build_model_archive():
     print("--- Starting state_dict build and archive process ---")
     if os.path.exists(BUILD_DIR):
@@ -126,7 +123,6 @@ def build_model_archive():
         print("--- ERROR: torch-model-archiver failed ---"); print(result.stderr)
     else:
         print("--- SUCCESS ---"); print(result.stdout)
-        print(f"✅ Successfully created ufc_predictor.mar in the '{MAR_EXPORT_PATH}' directory.")
 
 if __name__ == '__main__':
     build_model_archive()
