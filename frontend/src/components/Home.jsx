@@ -54,27 +54,11 @@ function Home() {
       <Typography variant="h5" component="h1" sx={{ textAlign: 'center', mb: 3 }}>
         Predict a Matchup
       </Typography>
+
       <Typography variant="h6" component="h2" sx={{ textAlign: 'center', mb: 2, fontSize: '1rem' }}>
-        Update as of Oct 27, 2025:
+        Note: First predictions may take ~15 secs to load due to service cold start times. Check out the full GitHub repo of this project <a href="https://github.com/brendes6/UFC-Fight-Outcome-Prediction-System"> here. </a>
       </Typography>
-      <Typography variant="h6" component="h2" sx={{ textAlign: 'center', mb: 2, fontSize: '1rem' }}>
-        Unfortunately, hosting a PyTorch-based fight prediction model as an API in the cloud is a high expense for a college student. If you are seeing this, I am in the process of building a cheaper deployment of this. I have stored
-        a few cached results for you use to see how the app works in the meantime. If interested, the GitHub repo for this project
-        can be found <a href="https://github.com/brendes6/UFC-Fight-Outcome-Prediction-System"> here. </a>
-      </Typography>
-      <Stack direction="row" spacing={1} justifyContent="center" sx={{ mb: 3, flexWrap: 'wrap' }}>
-        {cachedFights.map((fight, index) => (
-          <Button
-            key={index}
-            variant="outlined"
-            size="small"
-            onClick={() => handleCachedSearch(fight.f1, fight.f2)}
-            sx={{ m: 0.5 }}
-          >
-            Cached Result #{index + 1}
-          </Button>
-        ))}
-      </Stack>
+
 
       <Box component="form" onSubmit={handleSearch}>
         <Stack spacing={2}>

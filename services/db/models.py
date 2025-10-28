@@ -41,3 +41,30 @@ class Fighter(Base):
     fights_as_a = relationship("Fight", foreign_keys="[Fight.fighter_a_id]")
     fights_as_b = relationship("Fight", foreign_keys="[Fight.fighter_b_id]")
 
+
+class Fight(Base):
+    __tablename__ = "fights"
+
+
+    id = Column(Integer, primary_key=True, index=True)
+    fighter_a_id = Column(Integer, ForeignKey("fighters.id"))
+    fighter_b_id = Column(Integer, ForeignKey("fighters.id"))
+    winner = Column(String(255))
+    # winner_id = Column(Integer)
+    weight_class = Column(String(255))
+    gender = Column(String(255))
+    finish = Column(String(255))
+    finish_details = Column(String(255))
+
+    predictions = relationship("Prediction", back_populates="fight")
+
+class Prediction(Base):
+    __tablename__ = "predictions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    fight_id = Column(Integer, ForeignKey("fights.id"))
+    fighter_a_prob = Column(Float)
+    fighter_b_prob = Column(Float)
+    generated_at = Column(Date)
+
+    fight = relationship("Fight", back_populates="predictions")

@@ -36,16 +36,14 @@ function App() {
           </Toolbar>
         </AppBar>
         
-        {/* Main content area */}
         <Box
           component="main"
           sx={{
-            flexGrow: 1, // Takes up all available vertical space
-            display: 'flex', // Enables flexbox for its children
+            flexGrow: 1,
+            display: 'flex', 
             p: 3,
           }}
         >
-          {/* This is the key change. `margin: 'auto'` centers this Box within the parent. */}
           <Box sx={{ width: '100%', maxWidth: 600, margin: 'auto' }}>
             <Home />
           </Box>

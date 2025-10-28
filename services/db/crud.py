@@ -1,18 +1,24 @@
 from sqlalchemy.orm import Session
 from . import models
 
+# Retrieve a fighter by their name
 def get_fighter_by_name(db: Session, name: str):
-    # Retrieve a fighter obect from our DB from fighter name
     return db.query(models.Fighter).filter(models.Fighter.name == name).first()
 
+# Retrieve a fight by fighters names
+def get_fight_by_fighters(db: Session, fighter1: str, fighter2: str):
+    return db.query(models.Fight).filter(
+        ((models.Fight.fighter_a_id == get_fighter_id(db, fighter1)) & (models.Fight.fighter_b_id == get_fighter_id(db, fighter1))) |
+        ((models.Fight.fighter_a_id== fighter2) & (models.Fight.fighter_b_id == fighter1))
+    ).first()
 
+# Retrieve a fighter by their ID
 def get_fighter_id(db: Session, fighter_name: str):
-    # Get fighter ID from fighter name
     fighter = db.query(models.Fighter).filter(models.Fighter.name == fighter_name).first()
     return fighter.id if fighter else None
 
+# Remove a fighter from DB
 def remove_fighter(db: Session, fighter_name: str):
-    # Remove a fighter from our database
     fighter = db.query(models.Fighter).filter(models.Fighter.name == fighter_name).first()
     if fighter is None:
         return None
@@ -20,6 +26,7 @@ def remove_fighter(db: Session, fighter_name: str):
     db.commit()
     return fighter
 
+# Add a fighter to DB
 def add_fighter(
         db: Session,
         name: str,
@@ -53,8 +60,6 @@ def add_fighter(
         total_rounds_fought: int,
         weight_class: str,
         gender: str):
-    
-    # Add a fighter to our database
     fighter = models.Fighter(
         name=name,
         wins=wins,
@@ -92,3 +97,37 @@ def add_fighter(
     db.commit()
     db.refresh(fighter)
     return fighter
+
+def add_fight(
+        db: Session,
+       fighter_a_id: int,  fighter_b_id: int,
+        winner: str, weight_class: str,
+        gender: str, finish: str,
+        finish_details: str
+        ) -> models.Fight:
+    
+    fight = models.Fight(
+        fighter_a_id=fighter_a_id,
+        fighter_b_id=fighter_b_id,
+        winner=winner,
+        weight_class=weight_class,
+        gender=gender,
+        finish=finish,
+        finish_details=finish_details,
+    )
+    db.add(fight)
+    db.commit()
+    db.refresh(fight)
+    return fight
+
+
+def save_prediction(db: Session, fight_id: int, probs: dict):
+    prediction = models.Prediction(
+        fight_id=fight_id,
+        fighter_a_prob=probs["fighter_a"],
+        fighter_b_prob=probs["fighter_b"]
+    )
+    db.add(prediction)
+    db.commit()
+    db.refresh(prediction)
+    return prediction

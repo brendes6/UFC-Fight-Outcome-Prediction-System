@@ -182,7 +182,7 @@ def build_models(known_odds, predicting_winner, models_needed, threshold, save_p
 
             # Save model if it has >threshold accuracy
             if val_acc > threshold:
-                torch.save(model.state_dict(), f"{save_path}/ufc_model_{i}.pth")
+                torch.save(model.state_dict(), f"{save_path}ufc_model_{i}.pt")
                 i += 1
                 break
 
@@ -194,10 +194,10 @@ def main():
     if overwrite != "y":
         return
     
-    # build_models(False, False, 6, 40, "../Models/Unknown_Odds", 6)
+    build_models(False, False, 1, 40, "", 6)
     # build_models(True, False, 6, 41.5, "../Models/Known_Odds", 6)
     # build_models(False, True, 6, 70, "../Models/Predicting_Winner", 2)
-    build_models(True, True, 6, 72, "../Models/Predicting_Winner_Odds", 2)
+    # build_models(True, True, 6, 72, "../Models/Predicting_Winner_Odds", 2)
 
         
 
