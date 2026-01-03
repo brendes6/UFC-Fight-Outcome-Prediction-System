@@ -175,3 +175,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+onnxruntime.so
+onnxruntime.dylib
+.devcontainer/

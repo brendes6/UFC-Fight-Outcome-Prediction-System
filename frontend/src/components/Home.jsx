@@ -11,14 +11,6 @@ import Collapse from '@mui/material/Collapse';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
-const cachedFights = [
-  { f1: "Merab Dvalishvili", f2: "Umar Nurmagomedov" },
-  { f1: "Alexandre Pantoja", f2: "Joshua Van" },
-  { f1: "Alex Pereira", f2: "Carlos Ulberg" },
-  { f1: "Khamzat Chimaev", f2: "Anthony Hernandez" },
-];
-
-
 function Home() {
   const [fighter1Query, setFighter1Query] = useState("");
   const [fighter2Query, setFighter2Query] = useState("");

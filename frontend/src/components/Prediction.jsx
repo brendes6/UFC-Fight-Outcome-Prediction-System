@@ -30,11 +30,8 @@ function Prediction({ pred, fighter1, fighter2 }) {
   return (
     <Card elevation={0} sx={{ borderRadius: 3, border: 1, borderColor: 'grey.800' }}>
       <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-        {/* --- THIS IS THE FIX --- */}
-        {/* Replaced Grid with a Flexbox Box */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
 
-          {/* Fighter 1 Column */}
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="h6" fontWeight="bold" noWrap>{fighter1}</Typography>
             <Stack spacing={1.5} sx={{ mt: 2 }}>
@@ -47,7 +44,6 @@ function Prediction({ pred, fighter1, fighter2 }) {
             </Stack>
           </Box>
 
-          {/* VS & Total Probs Column */}
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="h5" fontWeight="900" color="text.secondary">VS</Typography>
             <Box sx={{ my: 1 }}>
@@ -56,7 +52,6 @@ function Prediction({ pred, fighter1, fighter2 }) {
             </Box>
           </Box>
           
-          {/* Fighter 2 Column */}
           <Box sx={{ flex: 1, textAlign: 'right', minWidth: 0 }}>
              <Typography variant="h6" fontWeight="bold" noWrap>{fighter2}</Typography>
              <Stack spacing={1.5} sx={{ mt: 2, alignItems: 'flex-end' }}>
@@ -71,9 +66,7 @@ function Prediction({ pred, fighter1, fighter2 }) {
           </Box>
 
         </Box>
-        {/* --- END FIX --- */}
-        
-        {/* Value Picks */}
+
         {valuePicks.length > 0 && valuePicks[0] !== "No value picks available." && (
           <Box sx={{ mt: 3 }}>
             <Divider sx={{ mb: 2 }} />

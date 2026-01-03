@@ -5,9 +5,8 @@ from datetime import datetime
 from dateutil.parser import parse
 import requests
 from . import data_cleaning
-from services.db.crud import remove_fighter, add_fighter
-from services.db.database import get_db
 import os
+from google.cloud import firestore 
 is_upcoming = False
 is_most_recent = True
 
@@ -1131,17 +1130,18 @@ def clean_up_data():
     return df
 
 def update_db():
+    db = firestore.Client(project="ufc-proj", database="ufcdb")
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
     stats_relative_path = os.path.join(current_script_dir, "fighter_stats.csv")
     df = pd.read_csv(stats_relative_path)
-    db = next(get_db())
-    for index, row in df.iloc[::-1].iterrows():
-        remove_fighter(db, row["Fighter"])
-        add_fighter(db, row["Fighter"], row["Wins"], row["WinsByKO"], row["WinsBySubmission"], row["WinsByDecision"], row["Losses"], row["HeightCms"], row["ReachCms"], row["AvgSigStrLanded"], row["AvgTDLanded"], row["AvgSigStrPct"], row["AvgSubAtt"], row["Stance"], row["WeightLbs"], row["Age"], row["KoPct"], row["SubPct"], row["DecPct"], row["AvgRounds"], row["Elo"], row["OpponentElo"], row["SigStrAbsorbed"], row["CurrentWinStreak"], row["FinishL5"], row["LossesByKO"], row["LossesBySub"], row["LossesByDec"], row["WinPct"], row["TotalRoundsFought"], row["WeightClass"], row["Gender"])
 
-    db.commit()
-    db.close()
-    print("Data Updated in DB")
+    records = df.to_dict(orient="records")
+
+    for i in range(len(records)):
+        record = records[i]
+        doc_id = str(record.get('Fighter')) 
+        doc_ref = db.collection("fighters").document(doc_id)
+        doc_ref.set(record, merge=True)
 
 if __name__ == "__main__":
     scrape_previous_fights()

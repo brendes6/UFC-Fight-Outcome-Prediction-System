@@ -1,5 +1,78 @@
 import pandas as pd
-from services.db import crud, database
+# from services.db import crud, database
+
+
+def two_fighter_stats_df(fighter1, fighter2):
+    """Get the stats for two fighters from the cleaned fighter stats CSV file.
+    
+    Input:
+        fighter1: Name of the first fighter.
+        fighter2: Name of the second fighter.   
+    Output:
+        A DataFrame containing the stats for both fighters.
+    """
+
+
+    data = pd.read_csv("fighter_stats.csv")
+
+    fighter1_data = data[data["Fighter"] == fighter1]
+    fighter2_data = data[data["Fighter"] == fighter2]
+
+    values = [
+        "Fighter", "Wins", "WinsByKO", "WinsBySubmission", 
+        "WinsByDecision", "Losses", "HeightCms", 
+        "ReachCms", "AvgSigStrLanded", 
+        "AvgTDLanded", "AvgSigStrPct", "AvgSubAtt", "Stance", 
+        "WeightLbs", "Age", "KoPct", "SubPct",
+        "DecPct", "AvgRounds", 
+        "Elo", "OpponentElo", 
+        "SigStrAbsorbed",
+        "CurrentWinStreak",
+        "FinishL5", "LossesByKO",
+        "LossesBySub", "LossesByDec", "WinPct", "TotalRoundsFought"
+    ]
+
+    red_values = ["Red" + val for val in values]
+    blue_values = ["Blue" + val for val in values]
+
+    combined_values = red_values + blue_values
+
+    combined_data = pd.DataFrame(columns = combined_values)
+
+    new_data = {}
+
+    filled_values = 0
+
+    # Fill in red fighter data: val[3:] is the value without "Red"
+    for val in red_values:
+        if val[3:] in fighter1_data.columns: 
+            new_data[val] = fighter1_data[val[3:]].iloc[0]
+        else:
+            new_data[val] = None
+            filled_values += 1
+
+    # Fill in blue fighter data: val[4:] is the value without "Blue"
+    for val in blue_values:
+        if val[4:] in fighter2_data.columns:
+            new_data[val] = fighter2_data[val[4:]].iloc[0]
+        else:
+            new_data[val] = None
+            filled_values += 1
+
+    
+    if not pd.DataFrame([new_data]).isna().all(axis=1).any():
+        combined_data = pd.concat([combined_data, pd.DataFrame([new_data])], ignore_index=True)
+
+
+    combined_data = calculate_metrics(combined_data, fighter_specific=True)
+
+    if filled_values > 4:
+        print(f"Warning: {filled_values} values were not found for {fighter1} and {fighter2}")
+
+    return combined_data
+
+
+
 
 def two_fighter_stats(fighter1, fighter2):
     """Get the stats for two fighters from the cleaned fighter stats CSV file.

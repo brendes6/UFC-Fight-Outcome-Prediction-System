@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from services.api.app_util import two_fighter_stats
+from app_util import two_fighter_stats_df
 from typing import Dict, List
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -36,7 +36,7 @@ def predict(fighter1: str, fighter2: str):
 
     # Get fighter stats, catching errors for missing fighters
     try:
-        stats = two_fighter_stats(fighter1, fighter2)
+        stats = two_fighter_stats_df(fighter1, fighter2)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -46,8 +46,13 @@ def predict(fighter1: str, fighter2: str):
     scaler, saved_order = joblib.load(scaler_path)
     
     X_pred = stats[saved_order].copy()
+    print(X_pred.values.tolist())
+
     X_scaled = scaler.transform(X_pred)
     features = X_scaled.tolist()
+
+
+    return {"status": "success", "features": X_pred.values.tolist()}
 
     # Initialize headers and payload for HF API request
     payload = {"inputs": features}

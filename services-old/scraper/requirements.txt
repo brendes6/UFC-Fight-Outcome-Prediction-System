@@ -3,7 +3,6 @@ numpy
 bs4
 requests
 python-dotenv
-pymysql
-sqlalchemy
+google-cloud-firestore
 
 
