@@ -21,11 +21,11 @@ function ProbabilityBar({ value, color = 'primary' }) {
 }
 
 function Prediction({ pred, fighter1, fighter2 }) {
-  const probs = pred.predictions || [0, 0, 0, 0, 0, 0];
+  const probs = pred || [0, 0, 0, 0, 0, 0];
   const valuePicks = pred.value_picks || [];
 
-  const fighter1TotalProb = probs[0] + probs[1] + probs[2];
-  const fighter2TotalProb = probs[3] + probs[4] + probs[5];
+  const fighter1TotalProb = probs.red_ko + probs.red_sub + probs.red_dec;
+  const fighter2TotalProb = probs.blue_ko + probs.blue_sub + probs.blue_dec;
 
   return (
     <Card elevation={0} sx={{ borderRadius: 3, border: 1, borderColor: 'grey.800' }}>
