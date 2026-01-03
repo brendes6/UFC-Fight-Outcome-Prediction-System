@@ -55,9 +55,7 @@ function Home() {
         Predict a Matchup
       </Typography>
 
-      <Typography variant="h6" component="h2" sx={{ textAlign: 'center', mb: 2, fontSize: '1rem' }}>
-        Note: First predictions may take ~15 secs to load due to service cold start times. Check out the full GitHub repo of this project <a href="https://github.com/brendes6/UFC-Fight-Outcome-Prediction-System"> here. </a>
-      </Typography>
+
 
 
       <Box component="form" onSubmit={handleSearch}>
