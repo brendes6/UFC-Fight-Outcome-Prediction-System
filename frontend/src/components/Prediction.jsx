@@ -39,11 +39,11 @@ function Prediction({ pred, fighter1, fighter2 }) {
             <Typography variant="h6" fontWeight="bold" noWrap>{fighter1}</Typography>
             <Stack spacing={1.5} sx={{ mt: 2 }}>
               <Typography variant="caption">To win by KO/TKO</Typography>
-              <ProbabilityBar value={probs[0]} />
+              <ProbabilityBar value={probs.red_ko} />
               <Typography variant="caption">To win by Submission</Typography>
-              <ProbabilityBar value={probs[1]} />
+              <ProbabilityBar value={probs.red_sub} />
               <Typography variant="caption">To win by Decision</Typography>
-              <ProbabilityBar value={probs[2]} />
+              <ProbabilityBar value={probs.red_dec} />
             </Stack>
           </Box>
 
@@ -61,11 +61,11 @@ function Prediction({ pred, fighter1, fighter2 }) {
              <Typography variant="h6" fontWeight="bold" noWrap>{fighter2}</Typography>
              <Stack spacing={1.5} sx={{ mt: 2, alignItems: 'flex-end' }}>
               <Typography variant="caption">To win by KO/TKO</Typography>
-              <ProbabilityBar value={probs[3]} color="secondary" />
+              <ProbabilityBar value={probs.blue_ko} color="secondary" />
               <Typography variant="caption">To win by Submission</Typography>
-              <ProbabilityBar value={probs[4]} color="secondary" />
+              <ProbabilityBar value={probs.blue_sub} color="secondary" />
               <Typography variant="caption">To win by Decision</Typography>
-              <ProbabilityBar value={probs[5]} color="secondary" />
+              <ProbabilityBar value={probs.blue_dec} color="secondary" />
 
             </Stack>
           </Box>
