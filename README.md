@@ -12,6 +12,8 @@ This project began as a simple stats dashboard I built to learn Pandas. However,
 
 ## Tech Stack & Architecture
 
+![Mermaid](mermaid.png)
+
 **Frontend:** React, deployed on Vercel  
 **Backend:** Go API leveraging Goroutines for high concurrency and ONNX Runtime for low-latency inference.
 **Machine Learning:** PyTorch neural network served via ONNX runtime
