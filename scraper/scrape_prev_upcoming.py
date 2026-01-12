@@ -4,9 +4,10 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 from dateutil.parser import parse
 import requests
-from . import data_cleaning
+import data_cleaning
 import os
 from google.cloud import firestore 
+from datetime import date
 is_upcoming = False
 is_most_recent = True
 
@@ -1143,7 +1144,133 @@ def update_db():
         doc_ref = db.collection("fighters").document(doc_id)
         doc_ref.set(record, merge=True)
 
+
+def scrape_upcoming_fights():
+    response = requests.get('http://ufcstats.com/statistics/events/upcoming')
+
+    bs = BeautifulSoup(response.content, "html.parser")
+
+    rows = bs.find_all("a", href=True)
+
+    url = ""
+
+    for row in rows:
+        href = row['href']
+
+        if "event-details" in href:
+            url = href
+            break
+    
+
+    response = requests.get(url)
+    bs = BeautifulSoup(response.content, "html.parser")
+    rows = bs.find_all("a")
+
+
+    red_fighters = []
+    blue_fighters = []
+    i = 0
+
+    for row in rows:
+        if row.has_attr("class"):
+            if row["class"][0] == "b-link" and row.get('href', None):
+                if i % 2 == 0:
+                    red_fighters.append(row.text.strip())
+                else:
+                    blue_fighters.append(row.text.strip())
+                i += 1
+
+
+    df = pd.DataFrame(columns=["RedFighter", "BlueFighter"])
+
+    df["RedFighter"] = red_fighters
+    df["BlueFighter"] = blue_fighters
+
+    
+
+    return df
+
+def predict_fight(red_fighter, blue_fighter):
+    """
+    args:
+        red_fighter: red fighter
+        blue_fighter: blue fighter
+    returns:
+        results: list of predicted results
+    
+    """
+
+    payload = {
+        "red_fighter": red_fighter,
+        "blue_fighter": blue_fighter
+    }
+
+    response = requests.post("https://ufc-predictions-685306641609.us-central1.run.app/predict", json=payload)
+
+    response.raise_for_status()
+
+    return response.json()
+
+
+def predict_upcoming_fights(upcoming_df):
+    """
+    args:
+        fights - DataFrame with list of upcoming fights
+    returns:
+        None
+    
+    1. Iterate fights by red v blue
+    2. Send post request to API, structure results
+    3. Upload results to firestore DB
+    conclude
+    
+    
+    """
+
+    data = {
+        "fight_id":[],
+        "red_fighter":[],
+        "blue_fighter":[],
+        "red_ko":[],
+        "blue_ko":[],
+        "red_sub":[],
+        "blue_sub":[],
+        "red_dec":[],
+        "blue_dec":[],
+    }
+
+    for i, row in upcoming_df.iterrows():
+        try:
+            results = predict_fight(row["RedFighter"], row["BlueFighter"])
+            data["fight_id"].append(f"{date.today()}_{row['RedFighter'].split()[1]}_{row['BlueFighter'].split()[1]}")
+            data["red_fighter"].append(row["RedFighter"])
+            data["blue_fighter"].append(row["BlueFighter"])
+            data["red_ko"].append(results["red_ko"])
+            data["red_sub"].append(results["red_sub"])
+            data["red_dec"].append(results["red_dec"])
+            data["blue_ko"].append(results["blue_ko"])
+            data["blue_sub"].append(results["blue_sub"])
+            data["blue_dec"].append(results["blue_dec"])
+        except Exception as e:
+            print(f"{row['RedFighter']} v {row['BlueFighter']} failed - {e}")
+
+    df = pd.DataFrame(data)
+
+    db = firestore.Client(project="ufc-proj", database="ufcdb")
+
+    records = df.to_dict(orient="records")
+
+    for i in range(len(records)):
+        record = records[i]
+        doc_id = str(record.get('fight_id')) 
+        doc_ref = db.collection("upcoming").document(doc_id)
+        doc_ref.set(record, merge=True)
+
+
+
 if __name__ == "__main__":
     scrape_previous_fights()
     clean_up_data()
     update_db()
+    df = scrape_upcoming_fights()
+    predict_upcoming_fights(df)

@@ -179,3 +179,4 @@ cython_debug/
 onnxruntime.so
 onnxruntime.dylib
 .devcontainer/
+fighter_pages/
