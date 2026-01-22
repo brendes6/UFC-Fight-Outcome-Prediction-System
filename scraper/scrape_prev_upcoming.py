@@ -17,12 +17,8 @@ def scrape_previous_fights():
     response = requests.get('http://ufcstats.com/statistics/events/completed')
 
     bs = BeautifulSoup(response.content, "html.parser")
-
     rows = bs.find_all("a", href=True)
-
-
     url = ""
-
     count = 0
 
     for row in rows:
@@ -1112,6 +1108,32 @@ def scrape_previous_fights():
     master = pd.read_csv(ufc_master_relative_path)
     master_df = pd.concat([df, master], ignore_index=True)
     master_df.to_csv(ufc_master_relative_path, index=False)
+    months = {"1": "Jan", "2": "Feb", "3": "Mar", "4": "Apr", "5": "May", "6": "Jun", "7": "Jul", "8": "Aug",
+              "9": "Sep", "10": "Oct", "11": "Nov", "12": "Dec"}
+    date = df["Date"][0].split("/")
+
+    df["DateKey"] = ""
+    df["Result"] = 0
+
+    for i, row in df.iterrows():
+        df.at[i, "DateKey"] = months[date[0]] + "_" + date[1] + "_" + date[2][2:] + "_" + df.at[i, "RedFighter"].split()[1] + "_" + df.at[i, "BlueFighter"].split()[1]
+
+        if row["Winner"] == "Red":
+            if row["Finish"] == "KO/TKO":
+                df.at[i, "Result"] = 1
+            elif row["Finish"] == "SUB":
+                df.at[i, "Result"] = 2
+            else:
+                df.at[i, "Result"] = 3
+        elif row["Winner"] == "Blue":
+            if row["Finish"] == "KO/TKO":
+                df.at[i, "Result"] = 4
+            elif row["Finish"] == "SUB":
+                df.at[i, "Result"] = 5
+            else:
+                df.at[i, "Result"] = 6
+        else:
+            df.at[i, "Result"] = 7
 
     df.to_csv(os.path.join(current_script_dir, "scraped_event.csv"), index=False)
     print("Data Scraped and Saved")
@@ -1119,7 +1141,12 @@ def scrape_previous_fights():
 
 def clean_up_data():
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
-    df = pd.read_csv(os.path.join(current_script_dir, "scraped_event.csv"))
+
+    try:
+        df = pd.read_csv(os.path.join(current_script_dir, "scraped_event.csv"))
+    except FileNotFoundError:
+        print("scraped_event.csv not found. Please run scrape_upcoming_fights() first.")
+        return
     df = data_cleaning.clean_up_data(df)
     df = data_cleaning.get_elos_and_streaks(df)
     df = data_cleaning.get_defense_data(df)
@@ -1134,15 +1161,21 @@ def update_db():
     db = firestore.Client(project="ufc-proj", database="ufcdb")
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
     stats_relative_path = os.path.join(current_script_dir, "fighter_stats.csv")
-    df = pd.read_csv(stats_relative_path)
+
+    try:
+        df = pd.read_csv(stats_relative_path)
+    except FileNotFoundError:
+        print("fighter_stats.csv not found. Please run clean_up_data() first.")
+        return
 
     records = df.to_dict(orient="records")
-
     for i in range(len(records)):
         record = records[i]
         doc_id = str(record.get('Fighter')) 
         doc_ref = db.collection("fighters").document(doc_id)
         doc_ref.set(record, merge=True)
+
+    print("Database updated with new data")
 
 
 def scrape_upcoming_fights():
@@ -1166,11 +1199,20 @@ def scrape_upcoming_fights():
     bs = BeautifulSoup(response.content, "html.parser")
     rows = bs.find_all("a")
 
+    i_rows = bs.find_all("li")
 
+    
     red_fighters = []
     blue_fighters = []
+    key = ""
     i = 0
 
+    for r in i_rows:
+        text = r.text.split()
+        if text[0] == "Date:":
+            key = text[1][:3] + "_" + text[2][:-1] + "_" + text[3][2:]
+
+        
     for row in rows:
         if row.has_attr("class"):
             if row["class"][0] == "b-link" and row.get('href', None):
@@ -1180,15 +1222,12 @@ def scrape_upcoming_fights():
                     blue_fighters.append(row.text.strip())
                 i += 1
 
-
     df = pd.DataFrame(columns=["RedFighter", "BlueFighter"])
 
     df["RedFighter"] = red_fighters
     df["BlueFighter"] = blue_fighters
 
-    
-
-    return df
+    return df, key
 
 def predict_fight(red_fighter, blue_fighter):
     """
@@ -1206,13 +1245,12 @@ def predict_fight(red_fighter, blue_fighter):
     }
 
     response = requests.post("https://ufc-predictions-685306641609.us-central1.run.app/predict", json=payload)
-
     response.raise_for_status()
 
     return response.json()
 
 
-def predict_upcoming_fights(upcoming_df):
+def predict_upcoming_fights(upcoming_df, date_key):
     """
     args:
         fights - DataFrame with list of upcoming fights
@@ -1242,7 +1280,7 @@ def predict_upcoming_fights(upcoming_df):
     for i, row in upcoming_df.iterrows():
         try:
             results = predict_fight(row["RedFighter"], row["BlueFighter"])
-            data["fight_id"].append(f"{date.today()}_{row['RedFighter'].split()[1]}_{row['BlueFighter'].split()[1]}")
+            data["fight_id"].append(f"{date_key}_{row['RedFighter'].split()[1]}_{row['BlueFighter'].split()[1]}")
             data["red_fighter"].append(row["RedFighter"])
             data["blue_fighter"].append(row["BlueFighter"])
             data["red_ko"].append(results["red_ko"])
@@ -1265,6 +1303,41 @@ def predict_upcoming_fights(upcoming_df):
         doc_id = str(record.get('fight_id')) 
         doc_ref = db.collection("upcoming").document(doc_id)
         doc_ref.set(record, merge=True)
+    
+    print("Upcoming fight predictions uploaded to database")
+
+def update_prev_predictions():
+    db = firestore.Client(project="ufc-proj", database="ufcdb")
+    current_script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    try:
+        scraped_df = pd.read_csv(os.path.join(current_script_dir, "scraped_event.csv"))
+    except FileNotFoundError:
+        print("scraped_event.csv not found. Please run scrape_previous_fights() first.")
+        return
+
+    upcoming_ref = db.collection("upcoming")
+    previous_ref = db.collection("previous")
+    docs = upcoming_ref.stream()
+
+    for doc in docs:
+        data = doc.to_dict()
+        fight_id = data.get("fight_id")
+
+        if fight_id:
+            match = scraped_df[scraped_df["DateKey"] == fight_id]
+
+            if not match.empty:
+                print(f"Found matching fight: {fight_id}")
+                actual_result = match.iloc[0]
+
+                data["result"] = int(actual_result["Result"])
+                previous_ref.document(doc.id).set(data)
+                print(f"Moved {fight_id} to previous collection")
+
+                # Pop out item from upcoming
+                upcoming_ref.document(doc.id).delete()
+                print(f"Deleted {fight_id} from upcoming collection")
 
 
 
@@ -1272,5 +1345,7 @@ if __name__ == "__main__":
     scrape_previous_fights()
     clean_up_data()
     update_db()
-    df = scrape_upcoming_fights()
-    predict_upcoming_fights(df)
+    update_prev_predictions()
+
+    df, date_key = scrape_upcoming_fights()
+    predict_upcoming_fights(df, date_key)
