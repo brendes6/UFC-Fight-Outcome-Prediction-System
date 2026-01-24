@@ -1,6 +1,28 @@
 
 const SERVICE_URL = "https://ufc-predictions-685306641609.us-central1.run.app";
 
+export const getRoot = async () => {
+  try {
+    const response = await fetch(`${SERVICE_URL}/`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to fetch root");
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error fetching root:", error);
+    return null;
+  }
+};
+
 export const getPredictions = async (fighter1, fighter2) => {
   try {
     const response = await fetch(`${SERVICE_URL}/predict`, {

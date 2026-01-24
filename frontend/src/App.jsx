@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import AppBar from '@mui/material/AppBar';
@@ -25,9 +25,16 @@ const theme = createTheme({
   },
 });
 
-function App() {
+function App({ getRoot }) {
   const [fightSelectHandler, setFightSelectHandler] = useState(null);
 
+  useEffect(() => {
+    const fetchRoot = async () => {
+      const data = await getRoot();
+      console.log(data);
+    }
+    fetchRoot();
+  }, [getRoot]);
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />

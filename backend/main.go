@@ -284,7 +284,11 @@ func main() {
     db = <-dbChan
     onnxSession = <-onnxChan
 
+    router.GET("/", func(c *gin.Context) {
+        c.JSON(200, gin.H{"message": "Welcome to the UFC Predictions API"})
+    })
 
+    // Endpoint for /predict - returns prediction for a given fight
     // Endpoint for /predict
     router.POST("/predict", func(c *gin.Context) {
         // Struct binding red and blue fighters from context
