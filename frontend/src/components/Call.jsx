@@ -1,9 +1,9 @@
 
+const SERVICE_URL = "https://ufc-predictions-685306641609.us-central1.run.app";
+
 export const getPredictions = async (fighter1, fighter2) => {
-  const SERVICE_URL = "https://ufc-predictions-685306641609.us-central1.run.app/predict";
-  
   try {
-    const response = await fetch(SERVICE_URL, {
+    const response = await fetch(`${SERVICE_URL}/predict`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -26,5 +26,49 @@ export const getPredictions = async (fighter1, fighter2) => {
   } catch (error) {
     console.error("Error fetching prediction:", error);
     return null;
+  }
+};
+
+export const getUpcoming = async () => {
+  try {
+    const response = await fetch(`${SERVICE_URL}/upcoming`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to fetch upcoming fights");
+    }
+
+    const data = await response.json();
+    return data.fights || [];
+  } catch (error) {
+    console.error("Error fetching upcoming fights:", error);
+    return [];
+  }
+};
+
+export const getPrevious = async () => {
+  try {
+    const response = await fetch(`${SERVICE_URL}/previous`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to fetch previous fights");
+    }
+
+    const data = await response.json();
+    return data.fights || [];
+  } catch (error) {
+    console.error("Error fetching previous fights:", error);
+    return [];
   }
 };

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import AppBar from '@mui/material/AppBar';
@@ -6,6 +7,8 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import QueryStatsIcon from '@mui/icons-material/QueryStats';
 import Home from './components/Home';
+import UpcomingSidebar from './components/UpcomingSidebar';
+import PreviousSidebar from './components/PreviousSidebar';
 
 const theme = createTheme({
   palette: {
@@ -23,6 +26,8 @@ const theme = createTheme({
 });
 
 function App() {
+  const [fightSelectHandler, setFightSelectHandler] = useState(null);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -42,10 +47,20 @@ function App() {
             flexGrow: 1,
             display: 'flex', 
             p: 3,
+            gap: 2,
+            maxWidth: '1600px',
+            margin: '0 auto',
+            width: '100%',
           }}
         >
-          <Box sx={{ width: '100%', maxWidth: 600, margin: 'auto' }}>
-            <Home />
+          <Box sx={{ width: 300, flexShrink: 0, display: { xs: 'none', lg: 'block' } }}>
+            <PreviousSidebar onFightSelect={fightSelectHandler} />
+          </Box>
+          <Box sx={{ flex: 1, maxWidth: 600 }}>
+            <Home onFightSelectRef={setFightSelectHandler} />
+          </Box>
+          <Box sx={{ width: 300, flexShrink: 0, display: { xs: 'none', lg: 'block' } }}>
+            <UpcomingSidebar onFightSelect={fightSelectHandler} />
           </Box>
         </Box>
       </Box>

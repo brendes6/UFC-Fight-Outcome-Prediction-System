@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getPredictions } from "./Call";
 import Prediction from "./Prediction";
 import Paper from '@mui/material/Paper';
@@ -11,7 +11,7 @@ import Collapse from '@mui/material/Collapse';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
-function Home() {
+function Home({ onFightSelectRef }) {
   const [fighter1Query, setFighter1Query] = useState("");
   const [fighter2Query, setFighter2Query] = useState("");
   const [submittedFighters, setSubmittedFighters] = useState({ f1: "", f2: "" });
@@ -19,10 +19,16 @@ function Home() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const handleCachedSearch = (f1, f2) => {
+  const handleFightSelect = (f1, f2) => {
     setFighter1Query(f1);
     setFighter2Query(f2);
   };
+
+  useEffect(() => {
+    if (onFightSelectRef) {
+      onFightSelectRef(handleFightSelect);
+    }
+  }, [onFightSelectRef]);
 
   const handleSearch = async (e) => {
     e.preventDefault();

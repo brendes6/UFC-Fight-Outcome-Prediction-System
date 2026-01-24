@@ -257,7 +257,7 @@ func main() {
             "http://localhost:5174",
             "https://mma-predictor.vercel.app",
             },
-        AllowMethods:     []string{"POST", "OPTIONS"},
+        AllowMethods:     []string{"GET", "POST", "OPTIONS"},
         AllowHeaders:     []string{"Content-Type", "Authorization"},
         ExposeHeaders:    []string{"Content-Length"},
         AllowCredentials: true,
@@ -283,6 +283,7 @@ func main() {
 
     db = <-dbChan
     onnxSession = <-onnxChan
+
 
     // Endpoint for /predict
     router.POST("/predict", func(c *gin.Context) {
@@ -345,6 +346,48 @@ func main() {
             BlueSub: results_softmax[4],
             BlueDec: results_softmax[5],
         })
+    })
+
+    // Endpoint for /upcoming - returns all upcoming fight predictions
+    router.GET("/upcoming", func(c *gin.Context) {
+        ctx := c.Request.Context()
+        
+        // Query all documents from the "upcoming" collection
+        docs, err := db.Collection("upcoming").Documents(ctx).GetAll()
+        if err != nil {
+            c.JSON(500, gin.H{"error": fmt.Sprintf("Failed to fetch upcoming fights: %v", err)})
+            return
+        }
+
+        // Convert documents to slice of UpcomingFight
+        var upcomingFights []map[string]interface{}
+        for _, doc := range docs {
+            data := doc.Data()
+            upcomingFights = append(upcomingFights, data)
+        }
+
+        c.JSON(200, gin.H{"fights": upcomingFights})
+    })
+
+    // Endpoint for /previous - returns all previous fight predictions with results
+    router.GET("/previous", func(c *gin.Context) {
+        ctx := c.Request.Context()
+        
+        // Query all documents from the "previous" collection
+        docs, err := db.Collection("previous").Documents(ctx).GetAll()
+        if err != nil {
+            c.JSON(500, gin.H{"error": fmt.Sprintf("Failed to fetch previous fights: %v", err)})
+            return
+        }
+
+        // Convert documents to slice
+        var previousFights []map[string]interface{}
+        for _, doc := range docs {
+            data := doc.Data()
+            previousFights = append(previousFights, data)
+        }
+
+        c.JSON(200, gin.H{"fights": previousFights})
     })
 
     port := os.Getenv("PORT")

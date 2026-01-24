@@ -1140,6 +1140,7 @@ def scrape_previous_fights():
 
 
 def clean_up_data():
+    # Clean and structure data for database
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
 
     try:
@@ -1158,6 +1159,7 @@ def clean_up_data():
     return df
 
 def update_db():
+    # Update database with new data
     db = firestore.Client(project="ufc-proj", database="ufcdb")
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
     stats_relative_path = os.path.join(current_script_dir, "fighter_stats.csv")
@@ -1179,12 +1181,13 @@ def update_db():
 
 
 def scrape_upcoming_fights():
+    # Scrape upcoming fights from UFC stats website
     response = requests.get('http://ufcstats.com/statistics/events/upcoming')
 
+    response.raise_for_status()
+
     bs = BeautifulSoup(response.content, "html.parser")
-
     rows = bs.find_all("a", href=True)
-
     url = ""
 
     for row in rows:
@@ -1194,8 +1197,13 @@ def scrape_upcoming_fights():
             url = href
             break
     
+    if not url:
+        print("No upcoming fights found")
+        return None, None
 
     response = requests.get(url)
+    response.raise_for_status()
+
     bs = BeautifulSoup(response.content, "html.parser")
     rows = bs.find_all("a")
 
@@ -1267,6 +1275,7 @@ def predict_upcoming_fights(upcoming_df, date_key):
 
     data = {
         "fight_id":[],
+        "fight_number":[],
         "red_fighter":[],
         "blue_fighter":[],
         "red_ko":[],
@@ -1281,6 +1290,7 @@ def predict_upcoming_fights(upcoming_df, date_key):
         try:
             results = predict_fight(row["RedFighter"], row["BlueFighter"])
             data["fight_id"].append(f"{date_key}_{row['RedFighter'].split()[1]}_{row['BlueFighter'].split()[1]}")
+            data["fight_number"].append(i + 1)
             data["red_fighter"].append(row["RedFighter"])
             data["blue_fighter"].append(row["BlueFighter"])
             data["red_ko"].append(results["red_ko"])
@@ -1307,6 +1317,7 @@ def predict_upcoming_fights(upcoming_df, date_key):
     print("Upcoming fight predictions uploaded to database")
 
 def update_prev_predictions():
+    # Update previous predictions with actual results
     db = firestore.Client(project="ufc-proj", database="ufcdb")
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
     
