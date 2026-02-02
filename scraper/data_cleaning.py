@@ -371,7 +371,7 @@ def extract_fighter_stats(data):
         "LossesBySub", "LossesByDec", "WinPct", "TotalRoundsFought"
     ]
 
-    fighter_df = pd.DataFrame(columns = values)
+    fighter_df = pd.DataFrame(columns = values + ["fighter_tag"])
 
     fighters = set()
 
@@ -384,6 +384,9 @@ def extract_fighter_stats(data):
             # For data points we need, get the value from the red fighter
             for val in values:
                 new_data[val] = row["Red" + val]
+
+            new_data["fighter_tag"] = "_".join(row["RedFighter"].lower().replace("-", " ").split())
+
             
             # Finding weight class - sensitive to weight misses
             if 120 < new_data["WeightLbs"] <= 130:
@@ -415,6 +418,8 @@ def extract_fighter_stats(data):
             # For data points we need, get the value from the blue fighter
             for val in values:
                 new_data[val] = row["Blue" + val]
+            
+            new_data["fighter_tag"] = "_".join(row["BlueFighter"].lower().replace("-", " ").split())
             
             # Finding weight class - sensitive to weight misses
             if 120 < new_data["WeightLbs"] <= 130:

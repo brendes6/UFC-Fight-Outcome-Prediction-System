@@ -24,6 +24,20 @@ export const getRoot = async () => {
 };
 
 export const getPredictions = async (fighter1, fighter2) => {
+  const fighterTag1 = fighter1
+  .toLowerCase()
+  .replace(/-/g, " ")
+  .split(/\s+/)
+  .join("_");
+
+  const fighterTag2 = fighter2
+  .toLowerCase()
+  .replace(/-/g, " ")
+  .split(/\s+/)
+  .join("_");
+
+  console.log(fighterTag1, fighterTag2);
+
   try {
     const response = await fetch(`${SERVICE_URL}/predict`, {
       method: "POST",
@@ -31,8 +45,8 @@ export const getPredictions = async (fighter1, fighter2) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        red_fighter: fighter1,
-        blue_fighter: fighter2,
+        red_fighter: fighterTag1,
+        blue_fighter: fighterTag2,
       }),
     });
     console.log(response);

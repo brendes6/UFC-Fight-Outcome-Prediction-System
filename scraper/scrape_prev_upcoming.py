@@ -1114,9 +1114,18 @@ def scrape_previous_fights():
 
     df["DateKey"] = ""
     df["Result"] = 0
+    df["red_fighter_tag"] = ""
+    df["blue_fighter_tag"] = ""
+
+
 
     for i, row in df.iterrows():
-        df.at[i, "DateKey"] = months[date[0]] + "_" + date[1] + "_" + date[2][2:] + "_" + df.at[i, "RedFighter"].split()[1] + "_" + df.at[i, "BlueFighter"].split()[1]
+        df.at[i, "red_fighter_tag"] = "_".join(df.at[i, "RedFighter"].lower().replace("-", " ").split())
+        df.at[i, "blue_fighter_tag"] = "_".join(df.at[i, "BlueFighter"].lower().replace("-", " ").split())
+
+        df.at[i, "DateKey"] = months[str(int(date[0]))] + "_" + date[1] + "_" + date[2][2:] + "_" + df.at[i, "red_fighter_tag"] + "_" + df.at[i, "blue_fighter_tag"]
+        df.at[i, "DateKey2"] = months[str(int(date[0]))] + "_" + date[1] + "_" + date[2][2:] + "_" + df.at[i, "blue_fighter_tag"] + "_" + df.at[i, "red_fighter_tag"]
+
 
         if row["Winner"] == "Red":
             if row["Finish"] == "KO/TKO":
@@ -1173,7 +1182,7 @@ def update_db():
     records = df.to_dict(orient="records")
     for i in range(len(records)):
         record = records[i]
-        doc_id = str(record.get('Fighter')) 
+        doc_id = str(record.get('fighter_tag')) 
         doc_ref = db.collection("fighters").document(doc_id)
         doc_ref.set(record, merge=True)
 
@@ -1201,6 +1210,7 @@ def scrape_upcoming_fights():
         print("No upcoming fights found")
         return None, None
 
+
     response = requests.get(url)
     response.raise_for_status()
 
@@ -1212,6 +1222,8 @@ def scrape_upcoming_fights():
     
     red_fighters = []
     blue_fighters = []
+    red_tags = []
+    blue_tags = []
     key = ""
     i = 0
 
@@ -1226,18 +1238,24 @@ def scrape_upcoming_fights():
             if row["class"][0] == "b-link" and row.get('href', None):
                 if i % 2 == 0:
                     red_fighters.append(row.text.strip())
+                    red_tags.append("_".join(row.text.replace("-", " ").lower().split()))
                 else:
                     blue_fighters.append(row.text.strip())
+                    blue_tags.append("_".join(row.text.replace("-", " ").lower().split()))
                 i += 1
 
     df = pd.DataFrame(columns=["RedFighter", "BlueFighter"])
 
     df["RedFighter"] = red_fighters
     df["BlueFighter"] = blue_fighters
+    df["red_tag"] = red_tags
+    df["blue_tag"] = blue_tags
+
+
 
     return df, key
 
-def predict_fight(red_fighter, blue_fighter):
+def predict_fight(red_tag, blue_tag):
     """
     args:
         red_fighter: red fighter
@@ -1248,8 +1266,8 @@ def predict_fight(red_fighter, blue_fighter):
     """
 
     payload = {
-        "red_fighter": red_fighter,
-        "blue_fighter": blue_fighter
+        "red_fighter": red_tag,
+        "blue_fighter": blue_tag
     }
 
     response = requests.post("https://ufc-predictions-685306641609.us-central1.run.app/predict", json=payload)
@@ -1278,6 +1296,8 @@ def predict_upcoming_fights(upcoming_df, date_key):
         "fight_number":[],
         "red_fighter":[],
         "blue_fighter":[],
+        "red_tag":[],
+        "blue_tag":[],
         "red_ko":[],
         "blue_ko":[],
         "red_sub":[],
@@ -1288,8 +1308,8 @@ def predict_upcoming_fights(upcoming_df, date_key):
 
     for i, row in upcoming_df.iterrows():
         try:
-            results = predict_fight(row["RedFighter"], row["BlueFighter"])
-            data["fight_id"].append(f"{date_key}_{row['RedFighter'].split()[1]}_{row['BlueFighter'].split()[1]}")
+            results = predict_fight(row["red_tag"], row["blue_tag"])
+            data["fight_id"].append(f"{date_key}_{row['red_tag']}_{row['blue_tag']}")
             data["fight_number"].append(i + 1)
             data["red_fighter"].append(row["RedFighter"])
             data["blue_fighter"].append(row["BlueFighter"])
@@ -1299,6 +1319,8 @@ def predict_upcoming_fights(upcoming_df, date_key):
             data["blue_ko"].append(results["blue_ko"])
             data["blue_sub"].append(results["blue_sub"])
             data["blue_dec"].append(results["blue_dec"])
+            data["red_tag"].append(row["red_tag"])
+            data["blue_tag"].append(row["blue_tag"])
         except Exception as e:
             print(f"{row['RedFighter']} v {row['BlueFighter']} failed - {e}")
 
@@ -1346,9 +1368,9 @@ def update_prev_predictions():
                 previous_ref.document(doc.id).set(data)
                 print(f"Moved {fight_id} to previous collection")
 
-                # Pop out item from upcoming
-                upcoming_ref.document(doc.id).delete()
-                print(f"Deleted {fight_id} from upcoming collection")
+            # Pop out item from upcoming
+            upcoming_ref.document(doc.id).delete()
+            print(f"Deleted {fight_id} from upcoming collection")
 
 
 
