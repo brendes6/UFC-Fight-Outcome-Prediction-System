@@ -25,8 +25,23 @@ function PreviousSidebar({ onFightSelect }) {
       setError(null);
       try {
         const fights = await getPrevious();
-        // Sort by fight_number (ascending order)
+        const parseFightDate = (fightId) => {
+          if (!fightId) return 0;
+          const parts = fightId.split('_');
+          if (parts.length < 3) return 0;
+          const dateStr = `${parts[0]} ${parts[1]} 20${parts[2]}`;
+          const timestamp = Date.parse(dateStr);
+          return isNaN(timestamp) ? 0 : timestamp;
+        };
+
         const sortedFights = [...fights].sort((a, b) => {
+          const timeA = parseFightDate(a.fight_id);
+          const timeB = parseFightDate(b.fight_id);
+          
+          if (timeA !== timeB) {
+            return timeB - timeA; // Most recent first
+          }
+          
           const aNum = a.fight_number || 999;
           const bNum = b.fight_number || 999;
           return aNum - bNum;
