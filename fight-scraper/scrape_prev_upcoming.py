@@ -1,0 +1,1230 @@
+import pandas as pd
+from urllib.request import urlopen
+from bs4 import BeautifulSoup
+from datetime import datetime
+from dateutil.parser import parse
+import requests
+import data_cleaning
+import os
+from google.cloud import firestore 
+from datetime import date
+is_upcoming = False
+is_most_recent = True
+import time
+
+
+
+def scrape_previous_fights():
+
+    print("Scraping previous fight...")
+
+    # Get most recent event
+    response = requests.get('http://ufcstats.com/statistics/events/completed')
+
+    bs = BeautifulSoup(response.content, "html.parser")
+    rows = bs.find_all("a", href=True)
+    url = ""
+    count = 0
+
+    for row in rows:
+        href = row['href']
+
+        if "event-details" in href:
+            count += 1
+            if count == 2:
+                url = href
+                break
+
+    current_script_dir = os.path.dirname(os.path.abspath(__file__))
+    ufc_master_relative_path = os.path.join(current_script_dir, "ufc-master.csv")
+    temp_df = pd.read_csv(ufc_master_relative_path)
+
+    column_list = temp_df.columns
+
+    df = pd.DataFrame(columns=column_list)
+    html=urlopen(url)
+
+    bs=BeautifulSoup(html, 'html.parser')
+
+    
+    # Begin scraping
+
+    did_red_lose_list = []
+    winner_list = []
+    fight_links = bs.find_all('a', {'class':'b-flag'})
+    prev_link = ''
+    if is_upcoming:
+        fight_links = bs.find_all('tr')
+        fight_count = len(fight_links) - 1
+        for n in range(fight_count):
+            did_red_lose_list.append(True)
+            winner_list.append('Blue')
+            
+    else:    
+        for n in range(len(fight_links)):
+
+            link = (fight_links[n].attrs['href'])
+
+            if prev_link == link:          #This happens in draws
+                pass
+            else:
+                #Go to the page and figure out who won.
+                temp_html = urlopen(link)
+                bs_temp = BeautifulSoup(temp_html, 'html.parser')
+                fight_result = bs_temp.find('i', {'class':'b-fight-details__person-status'}).get_text().strip()
+                if fight_result == 'L':
+                    did_red_lose_list.append(True)
+                    winner_list.append('Blue')
+                elif fight_result == 'D':
+                    did_red_lose_list.append(False)
+                    winner_list.append('Draw')
+                elif fight_result == 'NC':
+                    did_red_lose_list.append(False)
+                    winner_list.append('No Contest')
+                else:
+                    did_red_lose_list.append(False)
+                    winner_list.append('Red')
+                #print(fight_result.get_text())
+            prev_link = link
+
+    fights = bs.find_all('td', {'class':'b-fight-details__table-col l-page_align_left'})
+
+
+    f_count = 0
+    fighters_raw = []
+    weight_classes_raw = []
+
+
+    for f in fights:
+        
+        if f_count%3 == 0 :
+            fighters_raw.append(f)
+        if f_count%3 == 1:
+            weight_classes_raw.append(f)
+
+        f_count=f_count+1
+
+
+    red_fighter_list = []
+    blue_fighter_list = []
+    weight_class_list = []
+
+    if is_most_recent:
+        for f in fighters_raw:
+            temp_fighters = f.find_all('p')
+            temp_links = f.find_all('a')
+            red_fighter_list.append([temp_fighters[0].get_text().strip(),
+                                    temp_links[0].attrs['href']])
+            blue_fighter_list.append([temp_fighters[1].get_text().strip(),
+                                    temp_links[1].attrs['href']])
+    else:
+        for f in fighters_raw:
+            temp_fighters = f.find_all('p')
+            temp_links = f.find_all('a')
+            blue_fighter_list.append([temp_fighters[0].get_text().strip(),
+                                    temp_links[0].attrs['href']])
+            red_fighter_list.append([temp_fighters[1].get_text().strip(),
+                                    temp_links[1].attrs['href']])
+
+
+    for w in weight_classes_raw:
+        temp_wc = w.find_all('p')
+        weight_class_list.append(temp_wc[0].get_text().strip())
+
+    # Insert fighters into dataframe
+    for i in range(len(red_fighter_list)):
+        if did_red_lose_list[i]:
+            df_temp = pd.DataFrame({'RedFighter': blue_fighter_list[i][0],
+                            'BlueFighter': red_fighter_list[i][0]},
+                            index=[i]) 
+        else:
+            df_temp = pd.DataFrame({'RedFighter': red_fighter_list[i][0],
+                            'BlueFighter': blue_fighter_list[i][0]},
+                            index=[i]) 
+            
+
+        df = pd.concat([df, df_temp])
+    
+
+    # Get date and location
+
+    date_raw = bs.find_all('li', {'class':'b-list__box-list-item'})
+    child_count=0
+    for dr in date_raw:
+        temp_count=0
+        for child in dr.children:
+            #print(child.string)
+            #print(temp_count, child_count)
+            if ((temp_count == 2) & (child_count == 0)):
+                raw_date = (child.string.strip())
+            if ((temp_count == 2) & (child_count == 1)):
+                location = (child.string.strip())
+                
+            temp_count = temp_count+1
+
+        child_count = child_count+1
+
+
+    formatted_date = datetime.strptime(raw_date, "%B %d, %Y")
+    date_datetime = formatted_date
+
+    #The pound sign removes the leading 0.
+    formatted_date=(formatted_date.strftime("%m/%e/%Y"))
+    df['Date'] = formatted_date
+    df['Location'] = location
+
+    split_location = location.split(',')
+    country = split_location[len(split_location)-1]
+    #print(country.strip())
+    country=country.strip()
+    df['Country'] = country
+
+    df['WeightClass']=weight_class_list
+
+
+
+    # Determine if it is a title fight
+
+    number_of_fights = len(weight_class_list)
+    title_fight_list = []
+    title_fight_raw = bs.find_all('tr', {'class':'b-fight-details__table-row'})
+    skip_row = True
+    for f in title_fight_raw:
+        if skip_row:
+            skip_row = False
+        else:
+            #print(f)
+            f = str(f)
+            #print(f)
+            if f.find('belt.png') > -1:
+                title_fight_list.append(True)
+            else:
+                title_fight_list.append(False)
+    df['TitleBout'] = title_fight_list
+
+    # Get fight gender
+
+    gender_list = []
+    for wc in weight_class_list:
+        if wc.split(' ')[0] == "Women's":
+            gender_list.append('FEMALE')
+        else:
+            gender_list.append('MALE')
+
+    df['Gender'] = gender_list
+
+
+    # Get # of rounds
+    
+    round_list = []
+    for z in range(number_of_fights):
+        if(title_fight_list[z]==True):
+            round_list.append(5)
+        else:
+            round_list.append(3)
+            
+    round_list[0] = 5
+
+    df['NumberOfRounds'] = round_list
+
+    # Get finish and details
+
+    if is_most_recent:
+        finish_list = []
+        finish_details_list = []
+
+        temp_list = bs.find_all('td', {'class':'b-fight-details__table-col l-page_align_left'})
+
+
+        count = 0
+        for t in temp_list:
+            if (count+1) % 3 == 0:
+                #There are 2 paragraphs here.  One with the finish.  The other with the 
+                temp_finish_list = t.find_all('p')
+                #print(count)
+                #print(t)
+                finish_list.append(temp_finish_list[0].get_text().strip())
+                finish_details_list.append(temp_finish_list[1].get_text().strip())
+            count = count+1
+
+        finish_round_list = []
+        time_list = []
+        
+        temp_list = bs.find_all('td', {'class':'b-fight-details__table-col'})
+        
+        count = 0
+        for t in temp_list:
+            #print(f"COUNT: {count}")
+            #print(t)
+        
+            if (count) % 10 == 8:
+                #There are 2 paragraphs here.  One with the finish.  The other with the 
+                #print(count)
+                #print(t)
+                finish_round_list.append(t.get_text().strip())
+                #finish_details_list.append(temp_finish_list[1].get_text().strip())
+            elif (count) % 10 == 9:
+                time_list.append(t.get_text().strip())
+            count = count+1
+
+    # Get fighter stats
+
+    red_count = 0
+    for f in red_fighter_list:
+        #print(f[1][7:])
+        
+        html= urlopen(f[1])
+        bs = BeautifulSoup(html.read(), 'html.parser')
+        with open(os.path.join(current_script_dir, f'fighter_pages/r{red_count}.html'), "w", encoding='utf-8') as file:
+            file.write(str(bs))
+    
+
+        red_count+=1
+
+    blue_count = 0
+    for f in blue_fighter_list:
+        #print(f[1][7:])
+        
+        html= urlopen(f[1])
+        bs = BeautifulSoup(html.read(), 'html.parser')
+        with open(os.path.join(current_script_dir, f'fighter_pages/b{blue_count}.html'), "w", encoding='utf-8') as file:
+            file.write(str(bs))
+    
+
+        blue_count+=1
+
+
+    #Find the current lose and win streaks
+    blue_fighter_win_streak = []
+    blue_fighter_lose_streak = []
+    red_fighter_win_streak = []
+    red_fighter_lose_streak = []
+    blue_draw_list = []
+    red_draw_list = []
+    blue_strike_list = []
+    red_strike_list = []
+    blue_strike_acc_list = []
+    red_strike_acc_list = []
+    sub_list = []
+    td_list = []
+    red_sub_list = []
+    red_td_list = []
+    td_acc_list = []
+    red_td_acc_list = []
+    red_fighter_longest_win_streak = []
+    blue_fighter_longest_win_streak = []
+    blue_total_losses = []
+    red_total_losses = []
+    blue_total_rounds = []
+    red_total_rounds = []
+    blue_title_bouts = []
+    red_title_bouts = []
+    blue_total_maj_dec = []
+    red_total_maj_dec = []
+    blue_total_split_dec = []
+    red_total_split_dec = []
+    blue_total_un_dec = []
+    red_total_un_dec = []
+    blue_total_ko = []
+    red_total_ko = []
+    blue_total_sub = []
+    red_total_sub = []
+    blue_total_wins = []
+    red_total_wins = []
+    stance_list = []
+    height_list = []
+    reach_list = []
+    weight_list = []
+    red_stance_list = []
+    red_height_list = []
+    red_reach_list = []
+    red_weight_list = []
+    blue_age_list = []
+    red_age_list = []
+
+    z = 0
+
+
+    for z in range(number_of_fights):
+
+        if(did_red_lose_list[z]):
+            b_fighter_file=open(os.path.join(current_script_dir, f'fighter_pages/r{z}.html'), "r")
+        else:
+            b_fighter_file=open(os.path.join(current_script_dir, f'fighter_pages/b{z}.html'), "r")
+            
+        blue_soup=BeautifulSoup(b_fighter_file.read(), 'html.parser')
+        
+        
+        
+        
+        blue_results_raw = blue_soup.find_all('i',{'class':'b-flag__text'})
+        blue_rounds_raw = blue_soup.find_all('p', {'class':'b-fight-details__table-text'})
+        blue_rounds_raw = blue_soup.find_all('tr', {'class':'b-fight-details__table-row'})
+        #print(f"Fight rows: {len(blue_fight_dates_raw)}")
+        blue_round_count = 0
+        for row_temp in blue_rounds_raw:
+            pos_dates = row_temp.find_all('p', {'class': 'b-fight-details__table-text'})
+            if len(pos_dates) > 16:
+                pos_date = (pos_dates[12].get_text().strip())
+                event_date_parsed = parse(formatted_date)
+                fight_date_parsed = parse(pos_date)
+                if fight_date_parsed <= event_date_parsed:
+                    blue_round_count = blue_round_count + int(pos_dates[15].get_text().strip())
+
+        
+        blue_total_rounds.append(blue_round_count)
+        dates_list = []
+        dates_list_red = []
+        blue_fight_dates_raw = blue_soup.find_all('tr', {'class':'b-fight-details__table-row'})
+        for row_temp in blue_fight_dates_raw:
+            pos_dates = row_temp.find_all('p', {'class': 'b-fight-details__table-text'})
+            if len(pos_dates) > 16:
+                dates_list.append(pos_dates[12].get_text().strip())
+
+        title_bout_count = 0
+        
+        title_bout_count = str(blue_soup).count('belt.png')
+        if(df.iloc[z]['TitleBout']):
+            title_bout_count -= 1
+        blue_title_bouts.append(title_bout_count)
+            
+
+        # Determine win type
+        temp_count = 0
+        for b in blue_rounds_raw:
+            temp_count+=1
+        
+        temp_count=0
+        dec_maj_count = 0
+        dec_split_count = 0
+        dec_un_count = 0
+        ko_count = 0
+        sub_count = 0
+        win_flag = False #Set to true when we have a win
+
+        for row_temp in blue_rounds_raw:
+            cols_method = row_temp.find_all('p', {'class': 'b-fight-details__table-text'})
+            if len(cols_method) > 16:
+                pos_date = (cols_method[12].get_text().strip())
+                event_date_parsed = parse(formatted_date)
+                fight_date_parsed = parse(pos_date)
+                if fight_date_parsed <= event_date_parsed:
+
+
+                    b = (cols_method[13])
+                    pos_flag = (cols_method[0].get_text().strip())
+                    if(pos_flag) == 'win':
+                        win_flag = True
+                    else:
+                        win_flag = False
+                #Now we are going to look at the win_flag.  If it's
+                #true we can tally the method
+                    if (win_flag == True):
+                        if(b.get_text().strip())=='M-DEC':
+                            dec_maj_count += 1
+                        elif(b.get_text().strip())=='S-DEC':
+                            dec_split_count +=1
+                        elif(b.get_text().strip())=='U-DEC':
+                            dec_un_count += 1
+                        elif(b.get_text().strip())=='KO/TKO':
+                            ko_count += 1
+                        elif(b.get_text().strip())=='SUB':
+                            sub_count += 1
+                        
+            temp_count+=1
+        
+        blue_total_maj_dec.append(dec_maj_count)
+        blue_total_split_dec.append(dec_split_count)    
+        blue_total_un_dec.append(dec_un_count)
+        blue_total_ko.append(ko_count)
+        blue_total_sub.append(sub_count)
+
+        # Get win/loss streaks
+        win_streak = 0
+        lose_streak =0
+        draw_count=0
+        end_streak = False #Set to true when the streak is over
+        longest_win_streak = 0
+        temp_win_streak = 0
+        total_losses=0
+        total_wins=0
+        for r in blue_results_raw:
+            r=r.get_text()
+            if r != 'next':
+                d = dates_list.pop(0)
+                event_date_parsed = parse(formatted_date)
+                fight_date_parsed = parse(d)
+                if fight_date_parsed <= event_date_parsed:
+                    #print(f"{fight_date_parsed} is earlier than {event_date_parsed}")                
+                    #print(r)
+                    if r=='draw':
+                        draw_count+=1        
+                    if end_streak == False:
+                        if r=='next': #Usually the first line.  Just skip
+                            pass
+                        elif r=='win':
+                            if (win_streak>0):
+                                win_streak+=1
+                            elif(win_streak==0 and lose_streak==0):
+                                win_streak+=1
+                            else:
+                                end_streak = True
+                        elif r=='loss':
+                            if (lose_streak>0):
+                                lose_streak+=1
+                            elif(win_streak==0 and lose_streak==0):
+                                lose_streak+=1
+                            else:
+                                end_streak=True
+                    b = r
+                    if b=='draw':
+                        if temp_win_streak > longest_win_streak:
+                            longest_win_streak = temp_win_streak
+                        temp_win_streak = 0
+                    if b=='win':
+                        temp_win_streak += 1
+                        total_wins+=1
+                    elif b=='loss':
+                        temp_win_streak = 0
+                        total_losses+=1
+                    if temp_win_streak > longest_win_streak:
+                        longest_win_streak = temp_win_streak
+
+
+        blue_fighter_win_streak.append(win_streak)
+        blue_fighter_lose_streak.append(lose_streak)
+        blue_draw_list.append(draw_count)
+        blue_fighter_longest_win_streak.append(longest_win_streak)
+        blue_total_losses.append(total_losses)
+        blue_total_wins.append(total_wins)
+        if did_red_lose_list[z]:
+            r_fighter_file=open(os.path.join(current_script_dir, f'fighter_pages/b{z}.html'), "r")
+        else:
+            r_fighter_file=open(os.path.join(current_script_dir, f'fighter_pages/r{z}.html'), "r")
+            
+        red_soup=BeautifulSoup(r_fighter_file.read(), 'html.parser')
+        red_results_raw = red_soup.find_all('i',{'class':'b-flag__text'})
+        red_rounds_raw = red_soup.find_all('p', {'class':'b-fight-details__table-text'})
+    
+        # Get total rounds fought
+        red_rounds_raw = red_soup.find_all('tr', {'class':'b-fight-details__table-row'})
+        #print(f"Fight rows: {len(blue_fight_dates_raw)}")
+        red_round_count = 0
+        for row_temp in red_rounds_raw:
+            pos_dates = row_temp.find_all('p', {'class': 'b-fight-details__table-text'})
+            if len(pos_dates) > 16:
+                pos_date = (pos_dates[12].get_text().strip())
+                event_date_parsed = parse(formatted_date)
+                fight_date_parsed = parse(pos_date)
+                if fight_date_parsed <= event_date_parsed:
+                    red_round_count = red_round_count + int(pos_dates[15].get_text().strip())
+
+        
+        red_total_rounds.append(red_round_count)
+
+        red_fight_dates_raw = red_soup.find_all('tr', {'class':'b-fight-details__table-row'})
+        for row_temp in red_fight_dates_raw:
+            pos_dates = row_temp.find_all('p', {'class': 'b-fight-details__table-text'})
+            if len(pos_dates) > 16:
+                dates_list_red.append(pos_dates[12].get_text().strip())
+
+        
+
+        title_bout_count = 0
+        
+        title_bout_count = str(red_soup).count('belt.png')
+        if(df.iloc[z]['TitleBout']):
+            title_bout_count -= 1
+        red_title_bouts.append(title_bout_count)    
+        
+        temp_count = 0
+        
+        temp_count=0
+        dec_maj_count = 0
+        dec_split_count = 0
+        dec_un_count = 0
+        ko_count = 0
+        sub_count = 0
+        win_flag = False #Set to true when we have a win
+        
+        for row_temp in red_rounds_raw:
+            cols_method = row_temp.find_all('p', {'class': 'b-fight-details__table-text'})
+            if len(cols_method) > 16:
+                pos_date = (cols_method[12].get_text().strip())
+                event_date_parsed = parse(formatted_date)
+                fight_date_parsed = parse(pos_date)
+                if fight_date_parsed <= event_date_parsed:
+
+
+                    b = (cols_method[13])
+                    pos_flag = (cols_method[0].get_text().strip())
+                    if(pos_flag) == 'win':
+                        win_flag = True
+                    else:
+                        win_flag = False
+                    
+                    if (win_flag == True):
+                        if(b.get_text().strip())=='M-DEC':
+                            dec_maj_count += 1
+                        elif(b.get_text().strip())=='S-DEC':
+                            dec_split_count +=1
+                        elif(b.get_text().strip())=='U-DEC':
+                            dec_un_count += 1
+                        elif(b.get_text().strip())=='KO/TKO':
+                            ko_count += 1
+                        elif(b.get_text().strip())=='SUB':
+                            sub_count += 1
+                        
+            temp_count+=1
+        
+        red_total_maj_dec.append(dec_maj_count)
+        red_total_split_dec.append(dec_split_count)    
+        red_total_un_dec.append(dec_un_count)
+        red_total_ko.append(ko_count)
+        red_total_sub.append(sub_count)
+
+        win_streak = 0
+        lose_streak =0
+        draw_count=0
+        longest_win_streak = 0
+        temp_win_streak = 0
+        total_losses = 0 
+        total_wins = 0
+        end_streak = False #Set to true when the streak is over
+        for r in red_results_raw:
+            r=r.get_text()
+            if r != 'next':
+                d = dates_list_red.pop(0)
+                event_date_parsed = parse(formatted_date)
+                fight_date_parsed = parse(d)
+                if fight_date_parsed <= event_date_parsed:
+                    if r=='draw':
+                        draw_count+=1        
+                    if end_streak == False:
+                        if r=='next': #Usually the first line.  Just skip
+                            pass
+                        elif r=='win':
+                            if (win_streak>0):
+                                win_streak+=1
+                            elif(win_streak==0 and lose_streak==0):
+                                win_streak+=1
+                            else:
+                                end_streak = True
+                        elif r=='loss':
+                            if (lose_streak>0):
+                                lose_streak+=1
+                            elif(win_streak==0 and lose_streak==0):
+                                lose_streak+=1
+                            else:
+                                end_streak=True
+                    b = r
+                    if b=='draw':
+                        if temp_win_streak > longest_win_streak:
+                            longest_win_streak = temp_win_streak
+                        temp_win_streak = 0
+                    if b=='win':
+                        temp_win_streak += 1
+                        total_wins+=1
+                    elif b=='loss':
+                        temp_win_streak = 0
+                        total_losses+=1
+                    if temp_win_streak > longest_win_streak:
+                        longest_win_streak = temp_win_streak
+                        
+        red_fighter_win_streak.append(win_streak)
+        red_fighter_lose_streak.append(lose_streak)
+        red_draw_list.append(draw_count)
+        red_fighter_longest_win_streak.append(longest_win_streak)
+        red_total_losses.append(total_losses)
+        red_total_wins.append(total_wins)
+
+        blue_strikes_raw = blue_soup.find_all('li',
+                                {'class':'b-list__box-list-item b-list__box-list-item_type_block'})
+
+        red_strikes_raw = red_soup.find_all('li',
+                                {'class':'b-list__box-list-item b-list__box-list-item_type_block'})
+
+        s_count = 0
+        for s in blue_strikes_raw:
+            if s_count == 5:
+                blue_strikes = str(s)
+                blue_strikes = blue_strikes.split('</i>')
+                blue_strikes = blue_strikes[1]
+                blue_strikes = blue_strikes[:-5]
+                blue_strikes=blue_strikes.strip()
+                blue_strike_list.append(blue_strikes)
+            if s_count == 6:
+                blue_str_acc = str(s)
+                blue_str_acc = blue_str_acc.split('</i>')
+                blue_str_acc = blue_str_acc[1]
+                blue_str_acc = blue_str_acc[:-5]
+                blue_str_acc=blue_str_acc.strip()
+                blue_strike_acc_list.append('.'+blue_str_acc[:-1])
+            else:
+
+                isolate_stat = str(s)
+                isolate_stat = isolate_stat.split('</i>')
+                isolate_stat = isolate_stat[1]
+                isolate_stat = isolate_stat[:-5]
+                isolate_stat = isolate_stat.strip()
+                if s_count == 13:
+                    sub_list.append(isolate_stat)
+                if s_count == 10:
+                    td_list.append(isolate_stat)
+                if s_count == 11:   #td_accuracy
+                    #We need to remove the percent sign
+                    isolate_stat = isolate_stat[:-1]
+                    #We need to convert to decimal
+                    isolate_stat = float(isolate_stat) / 100
+                    td_acc_list.append(isolate_stat)
+                if s_count ==3:
+                    #Stance
+                    stance_list.append(isolate_stat)
+                if s_count == 0:
+                    #Height
+                    isolate_stat = isolate_stat.replace("'", "")
+                    isolate_stat = isolate_stat.replace('"', '')
+                    height_tuple = isolate_stat.split(" ")
+                    if isolate_stat == ('--'):
+                        total_inches = 0
+                    else:
+                        total_inches = int(height_tuple[0])*12 + int(height_tuple[1])
+                    height_in_cm = total_inches * 2.54
+                    height_list.append(height_in_cm)
+                if s_count == 2:
+                    #Reach
+                    isolate_stat = isolate_stat.replace('"', '')
+                    if isolate_stat == ('--'):
+                        reach_in_cm = height_in_cm
+                    else:
+                        reach_in_cm = int(isolate_stat) * 2.54
+
+                    reach_list.append(reach_in_cm)
+                if s_count == 1:
+                    isolate_stat = isolate_stat.replace(" lbs.", '')
+                    weight_list.append(isolate_stat)
+                if s_count == 4:
+                    #Age
+
+                    if isolate_stat == '--':
+                        age = 30
+                    else:
+                        birth_date = datetime.strptime(isolate_stat, "%b %d, %Y")
+                        age = date_datetime.year - birth_date.year - ((date_datetime.month, date_datetime.day) < (birth_date.month, birth_date.day))
+                    
+                    blue_age_list.append(age)
+
+            s_count+=1
+
+        s_count = 0
+        for s in red_strikes_raw:
+            if s_count == 5:
+                red_strikes = str(s)
+                red_strikes = red_strikes.split('</i>')
+                red_strikes = red_strikes[1]
+                #print(temp)
+                #There is a tag at the end we need to strip
+                red_strikes = red_strikes[:-5]
+                red_strikes=red_strikes.strip()
+                #print(blue_strikes.strip())
+                red_strike_list.append(red_strikes)
+                #print(len(red_strike_list))
+            if s_count == 6:
+                red_str_acc = str(s)
+                red_str_acc = red_str_acc.split('</i>')
+                red_str_acc = red_str_acc[1]
+                #print(temp)
+                #There is a tag at the end we need to strip
+                red_str_acc = red_str_acc[:-5]
+                red_str_acc=red_str_acc.strip()
+                #print(blue_strikes.strip())
+                red_strike_acc_list.append('.'+red_str_acc[:-1])
+                #print(s)   
+            else:
+                #I think we can get the value without caring too
+                #much what it is..... This should save some coding
+                isolate_stat = str(s)
+                isolate_stat = isolate_stat.split('</i>')
+                isolate_stat = isolate_stat[1]
+                isolate_stat = isolate_stat[:-5]
+                isolate_stat = isolate_stat.strip()
+                if s_count == 13:
+                    red_sub_list.append(isolate_stat)
+                if s_count == 10:
+                    red_td_list.append(isolate_stat)
+                if s_count == 11:   #td_accuracy
+                    #We need to remove the percent sign
+                    isolate_stat = isolate_stat[:-1]
+                    #We need to convert to decimal
+                    isolate_stat = float(isolate_stat) / 100
+                    red_td_acc_list.append(isolate_stat)
+                if s_count ==3:
+                    #Stance
+                    red_stance_list.append(isolate_stat)
+                if s_count == 0:
+                    isolate_stat = isolate_stat.replace("'", "")
+                    isolate_stat = isolate_stat.replace('"', '')
+                    height_tuple = isolate_stat.split(" ")
+                    total_inches = int(height_tuple[0])*12 + int(height_tuple[1])
+                    height_in_cm = total_inches * 2.54
+
+                    red_height_list.append(height_in_cm)
+                if s_count == 2:
+                    #Reach
+                    isolate_stat = isolate_stat.replace('"', '')
+                    if isolate_stat == '--':
+                        reach_in_cm = height_in_cm
+                    else:
+                        reach_in_cm = int(isolate_stat) * 2.54
+                    red_reach_list.append(reach_in_cm)
+                if s_count == 1:
+                    #weight
+                    #print(isolate_stat)
+                    isolate_stat = isolate_stat.replace(" lbs.", '')
+                    #print(isolate_stat)
+                    red_weight_list.append(isolate_stat)
+                if s_count == 4:
+                    #Age
+                    if isolate_stat == '--':
+                        age = 30
+                    else:
+                        birth_date = datetime.strptime(isolate_stat, "%b %d, %Y")
+                        age = date_datetime.year - birth_date.year - ((date_datetime.month, date_datetime.day) < (birth_date.month, birth_date.day))
+                    red_age_list.append(age)
+
+
+            s_count+=1
+
+    # Add all scraped info back to dataframe
+
+    if (is_most_recent):
+        df['Finish'] =  finish_list
+        df['FinishDetails'] = finish_details_list
+        df['FinishRound'] = finish_round_list
+        df['FinishRoundTime'] = time_list
+        
+        def get_fight_time_secs(r, t):
+            r = int(r)
+            if r== '' or t == '':
+                return ''
+            else:
+                calculated_time = 300 * (r-1)
+                t_split = str(t).split(':')
+                #Check for nan
+                if t_split[0] != 'nan':
+                    calculated_time = calculated_time + 60 * int(t_split[0]) + int(t_split[1])
+            return calculated_time    
+
+        df['TotalFightTimeSecs'] = df.apply(lambda x: get_fight_time_secs(x['FinishRound'], x['FinishRoundTime']), axis=1)
+        
+    df['Winner'] = winner_list
+    df['BlueCurrentWinStreak'] = blue_fighter_win_streak
+    df['BlueCurrentLoseStreak'] = blue_fighter_lose_streak
+    df['RedCurrentWinStreak'] = red_fighter_win_streak
+    df['RedCurrentLoseStreak'] = red_fighter_lose_streak
+    df['RedLongestWinStreak'] = red_fighter_longest_win_streak
+    df['BlueLongestWinStreak'] = blue_fighter_longest_win_streak
+    df['BlueLosses'] = blue_total_losses
+    df['RedLosses'] = red_total_losses
+    df['BlueTotalRoundsFought'] = blue_total_rounds
+    df['RedTotalRoundsFought'] = red_total_rounds
+    df['BlueTotalTitleBouts'] = blue_title_bouts
+    df['RedTotalTitleBouts'] = red_title_bouts
+    df['BlueWinsByDecisionMajority'] = blue_total_maj_dec
+    df['BlueWinsByDecisionSplit'] = blue_total_split_dec
+    df['BlueWinsByDecisionUnanimous'] = blue_total_un_dec
+    df['BlueWinsByKO'] = blue_total_ko
+    df['BlueWinsBySubmission'] = blue_total_sub
+    df['BlueWinsByTKODoctorStoppage'] = 0
+    df['BlueWins'] = blue_total_wins
+    df['RedWins'] = red_total_wins
+    df['RedWinsByDecisionMajority'] = red_total_maj_dec
+    df['RedWinsByDecisionSplit'] = red_total_split_dec
+    df['RedWinsByDecisionUnanimous'] = red_total_un_dec
+    df['RedWinsByKO'] = red_total_ko
+    df['RedWinsBySubmission'] = red_total_sub
+    df['RedWinsByTKODoctorStoppage'] = 0
+
+    df['BlueReachCms'] = reach_list
+    df['BlueWeightLbs'] = weight_list
+    df['RedReachCms'] = red_reach_list
+    df['RedWeightLbs'] = red_weight_list
+
+    #Draws
+    df['RedDraws'] = red_draw_list
+    df['BlueDraws'] = blue_draw_list
+    df['BlueAvgSigStrLanded'] = blue_strike_list
+    df['RedAvgSigStrLanded'] = red_strike_list
+    df['BlueAvgSigStrPct'] = blue_strike_acc_list
+    df['RedAvgSigStrPct'] = red_strike_acc_list
+    df['BlueAvgSubAtt'] = sub_list
+    df['BlueAvgTDLanded'] = td_list
+    df['RedAvgSubAtt'] = red_sub_list
+    df['RedAvgTDLanded'] = red_td_list
+
+    df['BlueAvgTDPct'] = td_acc_list
+    df['RedAvgTDPct'] = red_td_acc_list
+
+    df['BlueStance'] = stance_list
+    df['BlueHeightCms'] = height_list
+    df['RedStance'] = red_stance_list
+    df['RedHeightCms'] = red_height_list
+
+    df['BlueAge'] = blue_age_list
+    df['RedAge'] = red_age_list
+
+    #Differences!!!
+    df['WinStreakDif'] = df['BlueCurrentWinStreak'] - df['RedCurrentWinStreak']
+    df['LoseStreakDif'] = df['BlueCurrentLoseStreak'] - df['RedCurrentLoseStreak']
+    df['LongestWinStreakDif'] = df['BlueLongestWinStreak'] - df['RedLongestWinStreak']
+    df['WinDif'] = df['BlueWins'] - df['RedWins']
+    df['LossDif'] = df['BlueLosses'] - df['RedLosses']
+    df['TotalRoundDif'] = df['BlueTotalRoundsFought'] - df['RedTotalRoundsFought']
+    df['TotalTitleBoutDif'] = df['BlueTotalTitleBouts'] - df['RedTotalTitleBouts']
+    df['KODif'] = df['BlueWinsByKO'] - df['RedWinsByKO']
+    df['SubDif'] = df['BlueWinsBySubmission'] - df['RedWinsBySubmission']
+    df['HeightDif'] = df['BlueHeightCms'] - df['RedHeightCms']
+    df['ReachDif'] = df['BlueReachCms'] - df['RedReachCms']
+    df['SigStrDif'] = df['BlueAvgSigStrLanded'].astype(float) - df['RedAvgSigStrLanded'].astype(float)
+    df['AvgSubAttDif'] = df['BlueAvgSubAtt'].astype(float) - df['RedAvgSubAtt'].astype(float)
+    df['AvgTDDif'] = df['BlueAvgTDLanded'].astype(float) - df['RedAvgTDLanded'].astype(float)
+    df['EmptyArena'] = 1
+    df['AgeDif'] = df['BlueAge'] - df['RedAge']
+
+    red_count = 0
+    for f in red_fighter_list:
+        #print(f[1][7:])
+        
+        html= urlopen(f[1])
+        bs = BeautifulSoup(html.read(), 'html.parser')
+        with open(os.path.join(current_script_dir, f'fighter_pages/r{red_count}.html'), "w", encoding='utf-8') as file:
+            file.write("")
+    
+
+        red_count+=1
+
+    blue_count = 0
+    for f in blue_fighter_list:
+        #print(f[1][7:])
+        
+        html= urlopen(f[1])
+        bs = BeautifulSoup(html.read(), 'html.parser')
+        with open(os.path.join(current_script_dir, f'fighter_pages/b{blue_count}.html'), "w", encoding='utf-8') as file:
+            file.write("")
+    
+
+        blue_count+=1
+
+    
+    # Create and store fight tag and result per fight
+    months = {"1": "Jan", "2": "Feb", "3": "Mar", "4": "Apr", "5": "May", "6": "Jun", "7": "Jul", "8": "Aug",
+              "9": "Sep", "10": "Oct", "11": "Nov", "12": "Dec"}
+
+    date = df["Date"][0].split("/")
+    date = [val.replace(" ", "0") for val in date]
+    
+
+    df["FightTag"] = ""
+    df["Result"] = 0
+
+    for i, row in df.iterrows():
+        red_tag = "_".join(df.at[i, "RedFighter"].lower().replace("-", " ").split())
+        blue_tag = "_".join(df.at[i, "BlueFighter"].lower().replace("-", " ").split())
+
+        df.at[i, "FightTag"] = months[str(int(date[0]))] + "_" + date[1] + "_" + date[2][2:] + "_" + red_tag + "_" + blue_tag
+
+
+        if row["Winner"] == "Red":
+            if row["Finish"] == "KO/TKO":
+                df.at[i, "Result"] = 1
+            elif row["Finish"] == "SUB":
+                df.at[i, "Result"] = 2
+            else:
+                df.at[i, "Result"] = 3
+        elif row["Winner"] == "Blue":
+            if row["Finish"] == "KO/TKO":
+                df.at[i, "Result"] = 4
+            elif row["Finish"] == "SUB":
+                df.at[i, "Result"] = 5
+            else:
+                df.at[i, "Result"] = 6
+        else:
+            df.at[i, "Result"] = 7
+
+    
+    # Update Types
+    df["BlueAvgSigStrLanded"] = df["BlueAvgSigStrLanded"].astype(float)
+    df["BlueAvgSigStrPct"] = df["BlueAvgSigStrPct"].astype(float)
+    df["BlueAvgSubAtt"] = df["BlueAvgSubAtt"].astype(float)
+    df["BlueAvgTDLanded"] = df["BlueAvgTDLanded"].astype(float)
+    df["BlueAvgSigStrLanded"] = df["BlueAvgSigStrLanded"].astype(float)
+    df["BlueWeightLbs"] = df["BlueWeightLbs"].astype(float)
+    df["BlueMatchSigStr"] = df["BlueMatchSigStr"].astype(float)
+    df["BlueMatchTD"] = df["BlueMatchTD"].astype(float)
+    df["BlueMatchSubAtt"] = df["BlueMatchSubAtt"].astype(float)
+    df["RedAvgSigStrLanded"] = df["RedAvgSigStrLanded"].astype(float)
+    df["RedAvgSigStrPct"] = df["RedAvgSigStrPct"].astype(float)
+    df["RedAvgSubAtt"] = df["RedAvgSubAtt"].astype(float)
+    df["RedAvgTDLanded"] = df["RedAvgTDLanded"].astype(float)
+    df["RedAvgSigStrLanded"] = df["RedAvgSigStrLanded"].astype(float)
+    df["RedWeightLbs"] = df["RedWeightLbs"].astype(float)
+    df["RedMatchSigStr"] = df["RedMatchSigStr"].astype(float)
+    df["RedMatchTD"] = df["RedMatchTD"].astype(float)
+    df["RedMatchSubAtt"] = df["RedMatchSubAtt"].astype(float)
+
+
+
+    df["MatchFightTime"] = df["MatchFightTime"].astype(float)
+
+    print("Scraped data from most recent event")
+
+
+    # Push scraped data to FireStore Database
+
+    db = firestore.Client(project="ufc-proj", database="ufcdb")
+
+    records = df.to_dict(orient="records")
+    for i in range(len(records)):
+        record = records[i]
+        doc_id = str(record.get('FightTag')) 
+        doc_ref = db.collection("ufc-master").document(doc_id)
+
+        doc_snapshot = doc_ref.get()
+
+        if doc_snapshot.exists:
+            print(f"Fight {doc_id} already exists.\n")
+        else:
+            print(f"Added NEW fight {doc_id}.\n")
+
+        doc_ref.set(record, merge=True)
+
+    print("Uploaded recent fights to ufc-master table\n\n")
+    
+    return df
+
+
+def clean_up_data(df):
+    # Clean and structure data for database
+    print("Cleaning data...")
+    
+    df = data_cleaning.clean_up_data(df)
+    df = data_cleaning.get_elos_and_streaks(df)
+    df = data_cleaning.get_defense_data(df)
+    df = data_cleaning.calculate_metrics(df)
+    df = data_cleaning.get_data_points(df)
+    df = data_cleaning.extract_fighter_stats(df)
+
+    print("Data cleaned successfully!\n\n")
+
+    return df
+
+
+def update_db(stat_df):
+    # Update database with new data
+    print("Uploading fighter stats...")
+
+    db = firestore.Client(project="ufc-proj", database="ufcdb")
+
+    records = stat_df.to_dict(orient="records")
+    for i in range(len(records)):
+        record = records[i]
+        doc_id = str(record.get('fighter_tag')) 
+        doc_ref = db.collection("fighters").document(doc_id)
+        doc_ref.set(record, merge=True)
+        print(f"Updated stats for {record['fighter_tag']}\n")
+
+    print("Updated fighters table with stats\n\n")
+
+
+def scrape_upcoming_fights():
+    # Scrape upcoming fights from UFC stats website
+    response = requests.get('http://ufcstats.com/statistics/events/upcoming')
+
+    response.raise_for_status()
+
+    bs = BeautifulSoup(response.content, "html.parser")
+    rows = bs.find_all("a", href=True)
+    url = ""
+
+    for row in rows:
+        href = row['href']
+
+        if "event-details" in href:
+            url = href
+            break
+
+    if not url:
+        print("No upcoming fights found")
+        return None, None
+
+
+    response = requests.get(url)
+    response.raise_for_status()
+
+    bs = BeautifulSoup(response.content, "html.parser")
+    rows = bs.find_all("a")
+
+    i_rows = bs.find_all("li")
+
+    
+    red_fighters = []
+    blue_fighters = []
+    red_tags = []
+    blue_tags = []
+    key = ""
+    i = 0
+
+    # Get date
+    for r in i_rows:
+        text = r.text.split()
+        if text[0] == "Date:":
+            key = text[1][:3] + "_" + text[2][:-1] + "_" + text[3][2:]
+
+    # Get list of fighters
+    for row in rows:
+        if row.has_attr("class"):
+            if row["class"][0] == "b-link" and row.get('href', None):
+                if i % 2 == 0:
+                    red_fighters.append(row.text.strip())
+                    red_tag = row.text.replace("-", " ").lower().split()
+                    if red_tag[-1] in ["jr", "sr", "jr.", "sr."]:
+                        red_tag = "_".join(red_tag[:-1])
+                    else:
+                        red_tag = "_".join(red_tag)
+                    red_tags.append(red_tag)
+                else:
+                    blue_fighters.append(row.text.strip())
+                    blue_tag = row.text.replace("-", " ").lower().split()
+                    if blue_tag[-1] in ["jr", "sr", "jr.", "sr."]:
+                        blue_tag = "_".join(blue_tag[:-1])
+                    else:
+                        blue_tag = "_".join(blue_tag)
+                    blue_tags.append(blue_tag)
+                i += 1
+
+    df = pd.DataFrame(columns=["RedFighter", "BlueFighter"])
+
+    df["RedFighter"] = red_fighters
+    df["BlueFighter"] = blue_fighters
+    df["red_tag"] = red_tags
+    df["blue_tag"] = blue_tags
+
+
+    return df, key
+
+
+def predict_fight(red_tag, blue_tag):
+    # Predict a fight between two fighters
+
+    time.sleep(1)
+
+    payload = {
+        "red_fighter": red_tag,
+        "blue_fighter": blue_tag
+    }
+
+    response = requests.post("https://ufc-predictions-685306641609.us-central1.run.app/predict", json=payload)
+    response.raise_for_status()
+
+    return response.json()
+
+
+def predict_upcoming_fights(upcoming_df, date_key):
+    # Predict all upcoming fights, store predictions in DB
+
+    print("Predicting upcoming fights...")
+
+    # Prepare fight predictions
+    data = {
+        "fight_id":[],
+        "fight_number":[],
+        "red_fighter":[],
+        "blue_fighter":[],
+        "red_tag":[],
+        "blue_tag":[],
+        "red_ko":[],
+        "blue_ko":[],
+        "red_sub":[],
+        "blue_sub":[],
+        "red_dec":[],
+        "blue_dec":[],
+    }
+
+    # Predict each matchup
+    for i, row in upcoming_df.iterrows():
+        try:
+            results = predict_fight(row["red_tag"], row["blue_tag"])
+            data["fight_id"].append(f"{date_key}_{row['red_tag']}_{row['blue_tag']}")
+            data["fight_number"].append(i + 1)
+            data["red_fighter"].append(row["RedFighter"])
+            data["blue_fighter"].append(row["BlueFighter"])
+            data["red_ko"].append(results["red_ko"])
+            data["red_sub"].append(results["red_sub"])
+            data["red_dec"].append(results["red_dec"])
+            data["blue_ko"].append(results["blue_ko"])
+            data["blue_sub"].append(results["blue_sub"])
+            data["blue_dec"].append(results["blue_dec"])
+            data["red_tag"].append(row["red_tag"])
+            data["blue_tag"].append(row["blue_tag"])
+
+            print(f"Prediction made for {row['RedFighter']} v {row['BlueFighter']}\n")
+        except Exception as e:
+            print(f"{row['RedFighter']} v {row['BlueFighter']} failed - {e}\n")
+
+    df = pd.DataFrame(data)
+
+    # Push predictions to DB
+    db = firestore.Client(project="ufc-proj", database="ufcdb")
+
+    records = df.to_dict(orient="records")
+
+    for i in range(len(records)):
+        record = records[i]
+        doc_id = str(record.get('fight_id')) 
+        doc_ref = db.collection("upcoming").document(doc_id)
+        doc_ref.set(record, merge=True)
+    
+    print("Upcoming fight predictions uploaded to database\n\n")
+
+
+def update_prev_predictions(event_df):
+    # Update previous predictions with actual results
+
+    print("Updating previous predictions...")
+    db = firestore.Client(project="ufc-proj", database="ufcdb")
+        
+    upcoming_ref = db.collection("upcoming")
+    previous_ref = db.collection("previous")
+    docs = upcoming_ref.stream()
+
+    for doc in docs:
+        data = doc.to_dict()
+        fight_id = data.get("fight_id")
+
+        if fight_id:
+            match = event_df[event_df["FightTag"] == fight_id]
+
+            if not match.empty:
+                print(f"Found matching fight: {fight_id}")
+                actual_result = match.iloc[0]
+
+                data["result"] = int(actual_result["Result"])
+                previous_ref.document(doc.id).set(data)
+                print(f"Moved {fight_id} to previous collection")
+
+            # Pop out item from upcoming
+            upcoming_ref.document(doc.id).delete()
+            print(f"Deleted {fight_id} from upcoming collection")
+
+    print("Previous predictions updated\n\n")
+
+if __name__ == "__main__":
+
+    event_df = scrape_previous_fights()
+    event_copy = event_df.copy()
+    stat_df = clean_up_data(event_copy)
+    update_db(stat_df)
+    update_prev_predictions(event_df)
+
+    df, date_key = scrape_upcoming_fights()
+    predict_upcoming_fights(df, date_key)

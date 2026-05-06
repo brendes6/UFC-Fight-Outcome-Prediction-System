@@ -1,0 +1,9 @@
+pandas
+numpy
+bs4
+requests
+python-dotenv
+google-cloud-firestore
+datetime
+
+
