@@ -1148,6 +1148,8 @@ def predict_upcoming_fights(upcoming_df, date_key):
         "blue_sub":[],
         "red_dec":[],
         "blue_dec":[],
+        "red_win":[],
+        "blue_win":[],
     }
 
     # Predict each matchup
@@ -1166,6 +1168,8 @@ def predict_upcoming_fights(upcoming_df, date_key):
             data["blue_dec"].append(results["blue_dec"])
             data["red_tag"].append(row["red_tag"])
             data["blue_tag"].append(row["blue_tag"])
+            data["red_win"].append(results["red_ko"] + results["red_sub"] + results["red_dec"])
+            data["blue_win"].append(results["blue_ko"] + results["blue_sub"] + results["blue_dec"])
 
             print(f"Prediction made for {row['RedFighter']} v {row['BlueFighter']}\n")
         except Exception as e:
