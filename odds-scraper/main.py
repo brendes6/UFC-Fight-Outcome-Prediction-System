@@ -100,6 +100,7 @@ def update_odds():
         red_prob, blue_prob, red_ev, blue_ev, best_bet, best_bet_ev = None, None, None, None, None, None
         
         if key1 in matchup_odds:
+            print("key: ", key1)
             red_prob = matchup_odds[key1][0]
             blue_prob = matchup_odds[key1][1]
 
@@ -113,6 +114,7 @@ def update_odds():
                 best_bet_ev = blue_ev
 
         elif key2 in matchup_odds:  
+            print("key: ", key2)
             red_prob = matchup_odds[key2][1]
             blue_prob = matchup_odds[key2][0]
 
