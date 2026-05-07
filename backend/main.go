@@ -2,15 +2,18 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"cloud.google.com/go/firestore"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	ort "github.com/yalue/onnxruntime_go"
 )
 
@@ -319,6 +322,17 @@ func main() {
 
 	ctx := context.Background()
 
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     os.Getenv("REDIS_URL"),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       0,
+	})
+
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		panic(fmt.Sprintf("Failed to connect to Redis: %v", err))
+	}
+
+
 	// For concurrent fetching of our firestore client and onnx
 	// sessions, we use channels
 	dbChan := make(chan *firestore.Client, 1)
@@ -355,13 +369,24 @@ func main() {
 			return
 		}
 
+		ctx := c.Request.Context()
+
+		// Check if prediction is cached in Redis
+		cacheKey := fmt.Sprintf("%s:%s", req.RedFighter, req.BlueFighter)
+		cached, err := rdb.Get(ctx, cacheKey).Result()
+		if err == nil {
+			var result PredictionResult
+			if json.Unmarshal([]byte(cached), &result) == nil {
+				c.JSON(200, result)
+				return
+			}
+		}
+
 		// Concurrently fetch both fighter stats and metadata
 		redChan := make(chan *Fighter, 1)
 		blueChan := make(chan *Fighter, 1)
 		metaChan := make(chan *ScalerMetadata, 1)
 		errChan := make(chan error, 3)
-
-		ctx := c.Request.Context()
 
 		go getFighterStats(ctx, db, req.RedFighter, redChan, errChan)
 		go getFighterStats(ctx, db, req.BlueFighter, blueChan, errChan)
@@ -394,15 +419,19 @@ func main() {
 		// Run ensemble inference: all models concurrently, then average softmax
 		ensembleProbs := runEnsembleInference(onnxSessions, features)
 
-		// Structure and return results
-		c.JSON(200, PredictionResult{
-			RedKO:   ensembleProbs[0],
-			RedSub:  ensembleProbs[1],
+		result := PredictionResult{
+			RedKO:   ensembleProbs[0], RedSub: ensembleProbs[1],
 			RedDec:  ensembleProbs[2],
-			BlueKO:  ensembleProbs[3],
-			BlueSub: ensembleProbs[4],
+			BlueKO:  ensembleProbs[3], BlueSub: ensembleProbs[4],
 			BlueDec: ensembleProbs[5],
-		})
+		}
+
+		if jsonBytes, err := json.Marshal(result); err == nil {
+			rdb.Set(ctx, cacheKey, jsonBytes, 24*time.Hour)
+		}
+
+		c.JSON(200, result)
+
 	})
 
 	// Endpoint for /upcoming - returns all upcoming fight predictions
