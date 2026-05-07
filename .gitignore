@@ -180,3 +180,7 @@ onnxruntime.so
 onnxruntime.dylib
 .devcontainer/
 fighter_pages/
+
+.DS_Store
+scripts-old/
+services-old/
