@@ -1,5 +1,4 @@
 import pandas as pd
-from urllib.request import urlopen
 from bs4 import BeautifulSoup
 from datetime import datetime
 from dateutil.parser import parse
@@ -11,6 +10,7 @@ from datetime import date
 is_upcoming = False
 is_most_recent = True
 import time
+from scrape_util import get_text_helper
 
 
 
@@ -19,9 +19,16 @@ def scrape_previous_fights():
     print("Scraping previous fight...")
 
     # Get most recent event
-    response = requests.get('http://ufcstats.com/statistics/events/completed')
 
-    bs = BeautifulSoup(response.content, "html.parser")
+    scraper_session = requests.Session()
+    scraper_session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    })
+
+    ufc_events_url = 'http://ufcstats.com/statistics/events/completed'
+    html = get_text_helper(ufc_events_url, scraper_session)
+
+    bs = BeautifulSoup(html, "html.parser")
     rows = bs.find_all("a", href=True)
     url = ""
     count = 0
@@ -34,15 +41,16 @@ def scrape_previous_fights():
             if count == 2:
                 url = href
                 break
-
+    
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
     ufc_master_relative_path = os.path.join(current_script_dir, "ufc-master.csv")
     temp_df = pd.read_csv(ufc_master_relative_path)
+    time.sleep(5)
 
     column_list = temp_df.columns
 
     df = pd.DataFrame(columns=column_list)
-    html=urlopen(url)
+    html = get_text_helper(url, scraper_session)
 
     bs=BeautifulSoup(html, 'html.parser')
 
@@ -52,6 +60,10 @@ def scrape_previous_fights():
     did_red_lose_list = []
     winner_list = []
     fight_links = bs.find_all('a', {'class':'b-flag'})
+    if not fight_links:
+        print("Something went wrong...")
+        return
+    
     prev_link = ''
     if is_upcoming:
         fight_links = bs.find_all('tr')
@@ -69,9 +81,10 @@ def scrape_previous_fights():
                 pass
             else:
                 #Go to the page and figure out who won.
-                temp_html = urlopen(link)
+                temp_html = get_text_helper(link, scraper_session)
                 bs_temp = BeautifulSoup(temp_html, 'html.parser')
-                fight_result = bs_temp.find('i', {'class':'b-fight-details__person-status'}).get_text().strip()
+                status_el = bs_temp.find('i', {'class': 'b-fight-details__person-status'})
+                fight_result = status_el.get_text().strip() if status_el else 'NC'
                 if fight_result == 'L':
                     did_red_lose_list.append(True)
                     winner_list.append('Blue')
@@ -84,7 +97,6 @@ def scrape_previous_fights():
                 else:
                     did_red_lose_list.append(False)
                     winner_list.append('Red')
-                #print(fight_result.get_text())
             prev_link = link
 
     fights = bs.find_all('td', {'class':'b-fight-details__table-col l-page_align_left'})
@@ -153,8 +165,6 @@ def scrape_previous_fights():
     for dr in date_raw:
         temp_count=0
         for child in dr.children:
-            #print(child.string)
-            #print(temp_count, child_count)
             if ((temp_count == 2) & (child_count == 0)):
                 raw_date = (child.string.strip())
             if ((temp_count == 2) & (child_count == 1)):
@@ -175,7 +185,6 @@ def scrape_previous_fights():
 
     split_location = location.split(',')
     country = split_location[len(split_location)-1]
-    #print(country.strip())
     country=country.strip()
     df['Country'] = country
 
@@ -193,9 +202,7 @@ def scrape_previous_fights():
         if skip_row:
             skip_row = False
         else:
-            #print(f)
             f = str(f)
-            #print(f)
             if f.find('belt.png') > -1:
                 title_fight_list.append(True)
             else:
@@ -241,8 +248,6 @@ def scrape_previous_fights():
             if (count+1) % 3 == 0:
                 #There are 2 paragraphs here.  One with the finish.  The other with the 
                 temp_finish_list = t.find_all('p')
-                #print(count)
-                #print(t)
                 finish_list.append(temp_finish_list[0].get_text().strip())
                 finish_details_list.append(temp_finish_list[1].get_text().strip())
             count = count+1
@@ -254,13 +259,9 @@ def scrape_previous_fights():
         
         count = 0
         for t in temp_list:
-            #print(f"COUNT: {count}")
-            #print(t)
         
             if (count) % 10 == 8:
                 #There are 2 paragraphs here.  One with the finish.  The other with the 
-                #print(count)
-                #print(t)
                 finish_round_list.append(t.get_text().strip())
                 #finish_details_list.append(temp_finish_list[1].get_text().strip())
             elif (count) % 10 == 9:
@@ -271,10 +272,9 @@ def scrape_previous_fights():
 
     red_count = 0
     for f in red_fighter_list:
-        #print(f[1][7:])
         
-        html= urlopen(f[1])
-        bs = BeautifulSoup(html.read(), 'html.parser')
+        fighter_html = get_text_helper(f[1], scraper_session)
+        bs = BeautifulSoup(fighter_html, 'html.parser')
         with open(os.path.join(current_script_dir, f'fighter_pages/r{red_count}.html'), "w", encoding='utf-8') as file:
             file.write(str(bs))
     
@@ -283,10 +283,9 @@ def scrape_previous_fights():
 
     blue_count = 0
     for f in blue_fighter_list:
-        #print(f[1][7:])
         
-        html= urlopen(f[1])
-        bs = BeautifulSoup(html.read(), 'html.parser')
+        fighter_html = get_text_helper(f[1], scraper_session)
+        bs = BeautifulSoup(fighter_html, 'html.parser')
         with open(os.path.join(current_script_dir, f'fighter_pages/b{blue_count}.html'), "w", encoding='utf-8') as file:
             file.write(str(bs))
     
@@ -360,7 +359,6 @@ def scrape_previous_fights():
         blue_results_raw = blue_soup.find_all('i',{'class':'b-flag__text'})
         blue_rounds_raw = blue_soup.find_all('p', {'class':'b-fight-details__table-text'})
         blue_rounds_raw = blue_soup.find_all('tr', {'class':'b-fight-details__table-row'})
-        #print(f"Fight rows: {len(blue_fight_dates_raw)}")
         blue_round_count = 0
         for row_temp in blue_rounds_raw:
             pos_dates = row_temp.find_all('p', {'class': 'b-fight-details__table-text'})
@@ -455,8 +453,6 @@ def scrape_previous_fights():
                 event_date_parsed = parse(formatted_date)
                 fight_date_parsed = parse(d)
                 if fight_date_parsed <= event_date_parsed:
-                    #print(f"{fight_date_parsed} is earlier than {event_date_parsed}")                
-                    #print(r)
                     if r=='draw':
                         draw_count+=1        
                     if end_streak == False:
@@ -508,7 +504,6 @@ def scrape_previous_fights():
     
         # Get total rounds fought
         red_rounds_raw = red_soup.find_all('tr', {'class':'b-fight-details__table-row'})
-        #print(f"Fight rows: {len(blue_fight_dates_raw)}")
         red_round_count = 0
         for row_temp in red_rounds_raw:
             pos_dates = row_temp.find_all('p', {'class': 'b-fight-details__table-text'})
@@ -722,24 +717,18 @@ def scrape_previous_fights():
                 red_strikes = str(s)
                 red_strikes = red_strikes.split('</i>')
                 red_strikes = red_strikes[1]
-                #print(temp)
                 #There is a tag at the end we need to strip
                 red_strikes = red_strikes[:-5]
                 red_strikes=red_strikes.strip()
-                #print(blue_strikes.strip())
                 red_strike_list.append(red_strikes)
-                #print(len(red_strike_list))
             if s_count == 6:
                 red_str_acc = str(s)
                 red_str_acc = red_str_acc.split('</i>')
                 red_str_acc = red_str_acc[1]
-                #print(temp)
                 #There is a tag at the end we need to strip
                 red_str_acc = red_str_acc[:-5]
                 red_str_acc=red_str_acc.strip()
-                #print(blue_strikes.strip())
                 red_strike_acc_list.append('.'+red_str_acc[:-1])
-                #print(s)   
             else:
                 #I think we can get the value without caring too
                 #much what it is..... This should save some coding
@@ -779,9 +768,7 @@ def scrape_previous_fights():
                     red_reach_list.append(reach_in_cm)
                 if s_count == 1:
                     #weight
-                    #print(isolate_stat)
                     isolate_stat = isolate_stat.replace(" lbs.", '')
-                    #print(isolate_stat)
                     red_weight_list.append(isolate_stat)
                 if s_count == 4:
                     #Age
@@ -893,10 +880,9 @@ def scrape_previous_fights():
 
     red_count = 0
     for f in red_fighter_list:
-        #print(f[1][7:])
         
-        html= urlopen(f[1])
-        bs = BeautifulSoup(html.read(), 'html.parser')
+        fighter_html = get_text_helper(f[1], scraper_session)
+        bs = BeautifulSoup(fighter_html, 'html.parser')
         with open(os.path.join(current_script_dir, f'fighter_pages/r{red_count}.html'), "w", encoding='utf-8') as file:
             file.write("")
     
@@ -905,10 +891,9 @@ def scrape_previous_fights():
 
     blue_count = 0
     for f in blue_fighter_list:
-        #print(f[1][7:])
         
-        html= urlopen(f[1])
-        bs = BeautifulSoup(html.read(), 'html.parser')
+        fighter_html = get_text_helper(f[1], scraper_session)
+        bs = BeautifulSoup(fighter_html, 'html.parser')
         with open(os.path.join(current_script_dir, f'fighter_pages/b{blue_count}.html'), "w", encoding='utf-8') as file:
             file.write("")
     
@@ -1038,11 +1023,13 @@ def update_db(stat_df):
 
 def scrape_upcoming_fights():
     # Scrape upcoming fights from UFC stats website
-    response = requests.get('http://ufcstats.com/statistics/events/upcoming')
+    scraper_session = requests.Session()
+    scraper_session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    })
+    html = get_text_helper('http://ufcstats.com/statistics/events/upcoming', scraper_session)
 
-    response.raise_for_status()
-
-    bs = BeautifulSoup(response.content, "html.parser")
+    bs = BeautifulSoup(html, "html.parser")
     rows = bs.find_all("a", href=True)
     url = ""
 
@@ -1058,10 +1045,8 @@ def scrape_upcoming_fights():
         return None, None
 
 
-    response = requests.get(url)
-    response.raise_for_status()
-
-    bs = BeautifulSoup(response.content, "html.parser")
+    html = get_text_helper(url, scraper_session)
+    bs = BeautifulSoup(html, "html.parser")
     rows = bs.find_all("a")
 
     i_rows = bs.find_all("li")
