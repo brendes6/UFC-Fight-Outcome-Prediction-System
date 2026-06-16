@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/firestore"
+	"cloud.google.com/go/storage"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -18,6 +20,7 @@ import (
 )
 
 const numModels = 4
+const gcsBucket = "ufc-proj-models"
 
 // Fighter struct - stores all basic fighter stats
 // used for eventual input tensor formatting
@@ -56,11 +59,11 @@ type Fighter struct {
 }
 
 // Struct storing metadata of means/std's for
-// our input pre-processing, taken from firestore database
+// our input pre-processing, loaded from GCS blob storage
 type ScalerMetadata struct {
-	Means      map[string]float64 `firestore:"means"`
-	Stds       map[string]float64 `firestore:"stds"`
-	SavedOrder []string           `firestore:"saved_order"`
+	Means      map[string]float64 `json:"means"`
+	Stds       map[string]float64 `json:"stds"`
+	SavedOrder []string           `json:"saved_order"`
 }
 
 // Struct for inference results structuring
@@ -87,22 +90,69 @@ func softmax(logits []float32) []float32 {
 	return probabilities
 }
 
-// Gets our metadata from firestore database
-func getMetadata(ctx context.Context, client *firestore.Client, metaChan chan<- *ScalerMetadata, errChan chan<- error) {
-	// Use channels to support concurrent data fetching.
-	// Error channel to handle fetching errors
-
-	dsnap, err := client.Collection("metadata").Doc("scaler_constants").Get(ctx)
+// Downloads scaler params JSON from GCS and parses into ScalerMetadata
+func loadScalerFromGCS(ctx context.Context) *ScalerMetadata {
+	client, err := storage.NewClient(ctx)
 	if err != nil {
-		errChan <- fmt.Errorf("metadata fetch error: %v", err)
-		return
+		panic(fmt.Sprintf("Failed to create GCS client: %v", err))
 	}
+	defer client.Close()
+
+	reader, err := client.Bucket(gcsBucket).Object("production/scaler_params.json").NewReader(ctx)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to read scaler from GCS: %v", err))
+	}
+	defer reader.Close()
+
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to read scaler data: %v", err))
+	}
+
 	var meta ScalerMetadata
-	if err := dsnap.DataTo(&meta); err != nil {
-		errChan <- fmt.Errorf("metadata parse error: %v", err)
-		return
+	if err := json.Unmarshal(data, &meta); err != nil {
+		panic(fmt.Sprintf("Failed to parse scaler JSON: %v", err))
 	}
-	metaChan <- &meta
+
+	fmt.Printf("Loaded scaler from GCS (%d features)\n", len(meta.SavedOrder))
+	return &meta
+}
+
+// Downloads ONNX model files from GCS to local disk
+func downloadModelsFromGCS(ctx context.Context) {
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create GCS client: %v", err))
+	}
+	defer client.Close()
+
+	var wg sync.WaitGroup
+	for i := 0; i < numModels; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			fileName := fmt.Sprintf("model_%d.onnx", idx)
+			gcsPath := fmt.Sprintf("production/%s", fileName)
+
+			reader, err := client.Bucket(gcsBucket).Object(gcsPath).NewReader(ctx)
+			if err != nil {
+				panic(fmt.Sprintf("Failed to download %s from GCS: %v", gcsPath, err))
+			}
+			defer reader.Close()
+
+			file, err := os.Create(fileName)
+			if err != nil {
+				panic(fmt.Sprintf("Failed to create local file %s: %v", fileName, err))
+			}
+			defer file.Close()
+
+			if _, err := io.Copy(file, reader); err != nil {
+				panic(fmt.Sprintf("Failed to write %s: %v", fileName, err))
+			}
+			fmt.Printf("Downloaded %s from GCS\n", fileName)
+		}(i)
+	}
+	wg.Wait()
 }
 
 // Initializes our firestore client for database reads
@@ -144,7 +194,11 @@ func initONNX(modelPath string) ModelSession {
 }
 
 // Initialize all ONNX models concurrently
-func initAllModels() []ModelSession {
+// Downloads models from GCS first, then loads them into ONNX sessions
+func initAllModels(ctx context.Context) []ModelSession {
+	// Download latest models from GCS blob storage
+	downloadModelsFromGCS(ctx)
+
 	ort.SetSharedLibraryPath("onnxruntime.so")
 	ort.InitializeEnvironment()
 
@@ -322,6 +376,8 @@ func main() {
 
 	ctx := context.Background()
 
+	// Initialize redis client - redis used to minimize inference
+	// time for common matchups
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     os.Getenv("REDIS_URL"),
 		Password: os.Getenv("REDIS_PASSWORD"),
@@ -333,24 +389,30 @@ func main() {
 	}
 
 
-	// For concurrent fetching of our firestore client and onnx
-	// sessions, we use channels
+	// Concurrently initialize firestore, load models from GCS, and load scaler from GCS
 	dbChan := make(chan *firestore.Client, 1)
 	onnxChan := make(chan []ModelSession, 1)
+	scalerChan := make(chan *ScalerMetadata, 1)
 
 	var db *firestore.Client
 	var onnxSessions []ModelSession
+	var scalerMeta *ScalerMetadata
 
 	go func() {
 		dbChan <- initFirestore(ctx)
 	}()
 
 	go func() {
-		onnxChan <- initAllModels()
+		onnxChan <- initAllModels(ctx)
+	}()
+
+	go func() {
+		scalerChan <- loadScalerFromGCS(ctx)
 	}()
 
 	db = <-dbChan
 	onnxSessions = <-onnxChan
+	scalerMeta = <-scalerChan
 
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "Welcome to the UFC Predictions API"})
@@ -382,21 +444,18 @@ func main() {
 			}
 		}
 
-		// Concurrently fetch both fighter stats and metadata
+		// Concurrently fetch both fighter stats from Firestore
 		redChan := make(chan *Fighter, 1)
 		blueChan := make(chan *Fighter, 1)
-		metaChan := make(chan *ScalerMetadata, 1)
-		errChan := make(chan error, 3)
+		errChan := make(chan error, 2)
 
 		go getFighterStats(ctx, db, req.RedFighter, redChan, errChan)
 		go getFighterStats(ctx, db, req.BlueFighter, blueChan, errChan)
-		go getMetadata(ctx, db, metaChan, errChan)
 
 		// Collect results
 		var red, blue *Fighter
-		var meta *ScalerMetadata
 
-		for received := 0; received < 3; {
+		for received := 0; received < 2; {
 			select {
 			case f := <-redChan:
 				red = f
@@ -404,17 +463,14 @@ func main() {
 			case b := <-blueChan:
 				blue = b
 				received++
-			case m := <-metaChan:
-				meta = m
-				received++
 			case err := <-errChan:
 				c.JSON(404, gin.H{"error": err.Error()})
 				return
 			}
 		}
 
-		// Engineer and scale features from fighter stats
-		features := calculateFeatures(red, blue, meta)
+		// Engineer and scale features using pre-loaded scaler from GCS
+		features := calculateFeatures(red, blue, scalerMeta)
 
 		// Run ensemble inference: all models concurrently, then average softmax
 		ensembleProbs := runEnsembleInference(onnxSessions, features)
@@ -426,6 +482,7 @@ func main() {
 			BlueDec: ensembleProbs[5],
 		}
 
+		// Store prediciton result in redis cache
 		if jsonBytes, err := json.Marshal(result); err == nil {
 			rdb.Set(ctx, cacheKey, jsonBytes, 24*time.Hour)
 		}

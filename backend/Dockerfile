@@ -18,12 +18,8 @@ WORKDIR /root/
 
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Copy everything from builder
+# Copy server binary and ONNX runtime (models are downloaded from GCS at startup)
 COPY --from=builder /app/server .
-COPY --from=builder /app/model_0.onnx .
-COPY --from=builder /app/model_1.onnx .
-COPY --from=builder /app/model_2.onnx .
-COPY --from=builder /app/model_3.onnx .
 COPY --from=builder /app/onnxruntime.so .
 ENV LD_LIBRARY_PATH=/root/
 
