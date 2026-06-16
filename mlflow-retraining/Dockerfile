@@ -1,14 +1,11 @@
-FROM python:3.9-slim as builder
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt
-
 FROM python:3.9-slim
 WORKDIR /app
 
-COPY --from=builder /root/.local /root/.local
-ENV PATH=/root/.local/bin:$PATH
+RUN pip install --no-cache-dir \
+    pandas numpy scikit-learn mlflow \
+    google-cloud-firestore google-cloud-storage && \
+    pip install --no-cache-dir \
+    torch --index-url https://download.pytorch.org/whl/cpu
 
 COPY . .
 
