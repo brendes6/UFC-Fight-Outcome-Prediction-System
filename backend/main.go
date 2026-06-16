@@ -437,6 +437,8 @@ func main() {
 		cacheKey := fmt.Sprintf("%s:%s", req.RedFighter, req.BlueFighter)
 		cached, err := rdb.Get(ctx, cacheKey).Result()
 		if err == nil {
+			// Print message verifying found in redis
+			fmt.Println("Found prediction in cache")
 			var result PredictionResult
 			if json.Unmarshal([]byte(cached), &result) == nil {
 				c.JSON(200, result)
@@ -484,7 +486,7 @@ func main() {
 
 		// Store prediciton result in redis cache
 		if jsonBytes, err := json.Marshal(result); err == nil {
-			rdb.Set(ctx, cacheKey, jsonBytes, 24*time.Hour)
+			rdb.Set(ctx, cacheKey, jsonBytes, 6*time.Hour)
 		}
 
 		c.JSON(200, result)

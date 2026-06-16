@@ -184,3 +184,9 @@ fighter_pages/
 .DS_Store
 scripts-old/
 services-old/
+
+scrape_util.py
+reclean_stats.py
+*.onnx
+*.db
+*.csv
