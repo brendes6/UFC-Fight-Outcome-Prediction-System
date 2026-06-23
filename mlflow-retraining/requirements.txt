@@ -5,3 +5,5 @@ mlflow
 scikit-learn
 google-cloud-firestore
 google-cloud-storage
+xgboost
+onnxmltools

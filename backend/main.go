@@ -19,8 +19,11 @@ import (
 	ort "github.com/yalue/onnxruntime_go"
 )
 
-const numModels = 4
+const numModels = 2
 const gcsBucket = "ufc-proj-models"
+
+// Model file names: one neural network, one XGBoost (heterogeneous ensemble)
+var modelFiles = [numModels]string{"nn_model.onnx", "xgb_model.onnx"}
 
 // Fighter struct - stores all basic fighter stats
 // used for eventual input tensor formatting
@@ -131,7 +134,7 @@ func downloadModelsFromGCS(ctx context.Context) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			fileName := fmt.Sprintf("model_%d.onnx", idx)
+			fileName := modelFiles[idx]
 			gcsPath := fmt.Sprintf("production/%s", fileName)
 
 			reader, err := client.Bucket(gcsBucket).Object(gcsPath).NewReader(ctx)
@@ -172,12 +175,16 @@ type ModelSession struct {
 	Session      *ort.AdvancedSession
 	InputTensor  *ort.Tensor[float32]
 	OutputTensor *ort.Tensor[float32]
+	// XGBoost ONNX models output labels + probabilities separately
+	LabelTensor  *ort.Tensor[int64]
+	IsTreeModel  bool // true for XGBoost, false for NN
 }
 
-// Function to initialize our ONNX model and session for inference
-func initONNX(modelPath string) ModelSession {
-	inputShape := ort.NewShape(1, 56) // 56 input features
-	outputShape := ort.NewShape(1, 6) // 6 output classes
+// Initialize a neural network ONNX model session
+// NN outputs raw logits as a single [1,6] tensor
+func initNNModel(modelPath string) ModelSession {
+	inputShape := ort.NewShape(1, 56)
+	outputShape := ort.NewShape(1, 6)
 
 	inputTensor, _ := ort.NewEmptyTensor[float32](inputShape)
 	outputTensor, _ := ort.NewEmptyTensor[float32](outputShape)
@@ -190,6 +197,30 @@ func initONNX(modelPath string) ModelSession {
 		Session:      session,
 		InputTensor:  inputTensor,
 		OutputTensor: outputTensor,
+		IsTreeModel:  false,
+	}
+}
+
+// Initialize an XGBoost ONNX model session
+// XGBoost ONNX models output (labels int64, probabilities float32)
+func initXGBModel(modelPath string) ModelSession {
+	inputShape := ort.NewShape(1, 56)
+	outputShape := ort.NewShape(1, 6)
+
+	inputTensor, _ := ort.NewEmptyTensor[float32](inputShape)
+	labelTensor, _ := ort.NewEmptyTensor[int64](ort.NewShape(1))
+	outputTensor, _ := ort.NewEmptyTensor[float32](outputShape)
+
+	session, _ := ort.NewAdvancedSession(modelPath,
+		[]string{"input"}, []string{"label", "probabilities"},
+		[]ort.Value{inputTensor}, []ort.Value{labelTensor, outputTensor}, nil)
+
+	return ModelSession{
+		Session:      session,
+		InputTensor:  inputTensor,
+		OutputTensor: outputTensor,
+		LabelTensor:  labelTensor,
+		IsTreeModel:  true,
 	}
 }
 
@@ -209,8 +240,13 @@ func initAllModels(ctx context.Context) []ModelSession {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			modelPath := fmt.Sprintf("model_%d.onnx", idx)
-			sessions[idx] = initONNX(modelPath)
+			modelPath := modelFiles[idx]
+			// Initialize based on model type
+			if idx == 0 {
+				sessions[idx] = initNNModel(modelPath)
+			} else {
+				sessions[idx] = initXGBModel(modelPath)
+			}
 		}(i)
 	}
 	wg.Wait()
@@ -218,6 +254,8 @@ func initAllModels(ctx context.Context) []ModelSession {
 }
 
 // Function to run inference using our ONNX session
+// Returns probabilities: for NN models, applies softmax to logits;
+// for XGBoost models, output is already probabilities
 func runInference(ms ModelSession, features []float32) []float32 {
 	// Get data of our input tensor
 	inputData := ms.InputTensor.GetData()
@@ -229,10 +267,19 @@ func runInference(ms ModelSession, features []float32) []float32 {
 	// Copy output data (important: copy before another goroutine modifies the tensor)
 	output := make([]float32, len(ms.OutputTensor.GetData()))
 	copy(output, ms.OutputTensor.GetData())
+
+	// NN outputs raw logits → apply softmax
+	// XGBoost ONNX outputs probabilities directly
+	if !ms.IsTreeModel {
+		output = softmax(output)
+	}
+
 	return output
 }
 
-// Run all models concurrently and average their softmax predictions
+// Run all models concurrently and average their probabilities.
+// Heterogeneous ensemble: NN (smooth boundaries) + XGBoost (step boundaries)
+// provides real diversity — different model families make different errors.
 func runEnsembleInference(sessions []ModelSession, features []float32) []float32 {
 	numClasses := 6
 	results := make([][]float32, numModels)
@@ -243,13 +290,12 @@ func runEnsembleInference(sessions []ModelSession, features []float32) []float32
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			logits := runInference(sessions[idx], features)
-			results[idx] = softmax(logits)
+			results[idx] = runInference(sessions[idx], features)
 		}(i)
 	}
 	wg.Wait()
 
-	// Average the softmax probabilities across all models
+	// Average probabilities across both models
 	averaged := make([]float32, numClasses)
 	for _, probs := range results {
 		for j := 0; j < numClasses; j++ {
@@ -342,7 +388,7 @@ func calculateFeatures(red, blue *Fighter, meta *ScalerMetadata) []float32 {
 		"RedFinishL5":          float64(red.FinishL5),
 		"BlueFinishL5":         float64(blue.FinishL5),
 		"FinishL5Dif":          float64(red.FinishL5 - blue.FinishL5),
-		"FinishPctDif":         red.WinPct - blue.WinPct,
+		"FinishPctDif":         (float64(red.WinsByKO+red.WinsBySubmission) / math.Max(float64(red.Wins), 1)) - (float64(blue.WinsByKO+blue.WinsBySubmission) / math.Max(float64(blue.Wins), 1)),
 	}
 
 	// From our metadata, calculate scaled values and add to our features slice

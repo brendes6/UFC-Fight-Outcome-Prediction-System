@@ -9,6 +9,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from google.cloud import firestore
+import xgboost as xgb
 import data_cleaning
 import json
 from datetime import date
@@ -69,6 +70,69 @@ class NN(nn.Module):
         x = self.fc5(x)
         return x
 
+# Final feature list for model input
+FINAL_FEATURES = [
+    "RedWinPct", "BlueWinPct", "WinPctDif","RedKoPct", "BlueKoPct", "KoPctDif",
+    "RedSubPct", "BlueSubPct", "SubPctDif","RedDecPct", "BlueDecPct", "DecPctDif","RedLossesByKO", "BlueLossesByKO", "LossesByKODif",
+    "RedLossesBySub", "BlueLossesBySub", "LossesBySubDif","RedLossesByDec", "BlueLossesByDec", "LossesByDecDif", "RedWeightLbs",
+    "HeightDif", "ReachDif", "AgeDif","RedAge", "BlueAge","SigStrDif", "StrPctDif", "TDDif", "SubAttDif",
+    "RedAvgSigStrLanded", "BlueAvgSigStrLanded","RedAvgTDLanded", "BlueAvgTDLanded","RedAvgSigStrPct", "BlueAvgSigStrPct",
+    "RedAvgSubAtt", "BlueAvgSubAtt","SigStrAbsorbedDif","RedSigStrAbsorbed", "BlueSigStrAbsorbed","AvgRoundsDif",
+    "RedAvgRounds", "BlueAvgRounds","EloDif", "OpponentEloDif","RedElo", "BlueElo", "WinStreakDif",
+    "RedCurrentWinStreak", "BlueCurrentWinStreak", "RedFinishL5", "BlueFinishL5", "FinishL5Dif","FinishPctDif"
+]
+
+# Mapping for red/blue swap augmentation — defines how feature indices
+# rearrange when we flip fighter corners to remove positional bias
+def _build_swap_indices():
+    """Build index mapping for swapping red/blue features.
+    
+    Returns (swap_order, negate_mask):
+        swap_order: array of indices that rearranges features for a red/blue swap
+        negate_mask: array of +1/-1 to negate difference features after swap
+    """
+    n = len(FINAL_FEATURES)
+    swap_order = list(range(n))
+    negate_mask = np.ones(n)
+
+    for i, feat in enumerate(FINAL_FEATURES):
+        # Find Red<->Blue swappable pairs
+        if feat.startswith("Red"):
+            blue_name = "Blue" + feat[3:]
+            if blue_name in FINAL_FEATURES:
+                j = FINAL_FEATURES.index(blue_name)
+                swap_order[i] = j
+                swap_order[j] = i
+        # Negate difference features (they flip sign when corners swap)
+        if feat.endswith("Dif"):
+            negate_mask[i] = -1.0
+
+    return np.array(swap_order), negate_mask
+
+SWAP_ORDER, NEGATE_MASK = _build_swap_indices()
+
+# Label mapping when corners swap: RedKO(0)↔BlueKO(3), RedSub(1)↔BlueSub(4), RedDec(2)↔BlueDec(5)
+LABEL_SWAP = {0: 3, 1: 4, 2: 5, 3: 0, 4: 1, 5: 2}
+
+
+def swap_augment(X, y):
+    """Create mirror copies of all samples with red/blue corners swapped.
+    
+    This removes the inherent red-corner-is-favorite bias in UFC data.
+    For each sample, we create a copy where:
+      - Red and Blue individual features swap positions
+      - Difference features get negated
+      - Labels swap (RedKO↔BlueKO, RedSub↔BlueSub, RedDec↔BlueDec)
+    """
+    X_swapped = X[:, SWAP_ORDER] * NEGATE_MASK
+    y_swapped = np.array([LABEL_SWAP[label] for label in y])
+    
+    X_aug = np.vstack([X, X_swapped])
+    y_aug = np.concatenate([y, y_swapped])
+    
+    return X_aug, y_aug
+
+
 def clean_up_data(df: pd.DataFrame) -> pd.DataFrame:
     """Clean data using cleaning scripts"""
     df = data_cleaning.clean_up_data(df)
@@ -93,45 +157,43 @@ def load_data() -> pd.DataFrame:
     return df
 
 def clean_and_scale(data):
-    """Clean and scale data"""
+    """Clean, augment, and scale data with temporal split and corner debiasing."""
 
     clean_df = clean_up_data(data)
 
     # Filter out fights where either fighter has 0 wins
     clean_df = clean_df[(clean_df["RedWins"] > 0) & (clean_df["BlueWins"] > 0)]
 
-    # Final features to pass into model
-    final_features = [
-        "RedWinPct", "BlueWinPct", "WinPctDif","RedKoPct", "BlueKoPct", "KoPctDif",
-        "RedSubPct", "BlueSubPct", "SubPctDif","RedDecPct", "BlueDecPct", "DecPctDif","RedLossesByKO", "BlueLossesByKO", "LossesByKODif",
-        "RedLossesBySub", "BlueLossesBySub", "LossesBySubDif","RedLossesByDec", "BlueLossesByDec", "LossesByDecDif", "RedWeightLbs",
-        "HeightDif", "ReachDif", "AgeDif","RedAge", "BlueAge","SigStrDif", "StrPctDif", "TDDif", "SubAttDif",
-        "RedAvgSigStrLanded", "BlueAvgSigStrLanded","RedAvgTDLanded", "BlueAvgTDLanded","RedAvgSigStrPct", "BlueAvgSigStrPct",
-        "RedAvgSubAtt", "BlueAvgSubAtt","SigStrAbsorbedDif","RedSigStrAbsorbed", "BlueSigStrAbsorbed","AvgRoundsDif",
-        "RedAvgRounds", "BlueAvgRounds","EloDif", "OpponentEloDif","RedElo", "BlueElo", "WinStreakDif",
-        "RedCurrentWinStreak", "BlueCurrentWinStreak", "RedFinishL5", "BlueFinishL5", "FinishL5Dif","FinishPctDif"
-    ]
-
-    X = clean_df[final_features].copy()
+    X = clean_df[FINAL_FEATURES].copy()
 
     # Replace any remaining inf/NaN from edge cases (e.g., 0 total fights for avg rounds)
     X = X.replace([np.inf, -np.inf], np.nan)
     X = X.fillna(0)
 
-    # fit + save scaler 
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-
     y = clean_df["categorical_outcome"].values
 
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_scaled, y, 
-        test_size=0.2, 
-        random_state=42,
-        stratify=y
-    )
+    # ── Temporal split: train on older fights, validate on recent ones ──
+    # Parse dates and sort chronologically for a proper temporal split
+    dates = pd.to_datetime(clean_df["Date"], format="mixed")
+    sorted_idx = dates.argsort()
 
-    return X_train, y_train, X_val, y_val, scaler
+    X_sorted = X.values[sorted_idx]
+    y_sorted = y[sorted_idx]
+
+    split_idx = int(len(X_sorted) * 0.8)
+    X_train_raw, X_val_raw = X_sorted[:split_idx], X_sorted[split_idx:]
+    y_train_raw, y_val_raw = y_sorted[:split_idx], y_sorted[split_idx:]
+
+    # ── Red/blue swap augmentation on training data only ──
+    # Doubles training data and removes corner bias
+    X_train_aug, y_train_aug = swap_augment(X_train_raw, y_train_raw)
+
+    # ── Fit scaler on augmented training data, apply to both sets ──
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train_aug)
+    X_val_scaled = scaler.transform(X_val_raw)
+
+    return X_train_scaled, y_train_aug, X_val_scaled, y_val_raw, scaler
         
 
 def mixup_data(x, y, alpha=0.2):
@@ -167,7 +229,6 @@ def train_model(X_train, y_train, X_val, y_val):
     learning_rate = 0.0005  
     num_epochs = 500  # more epochs to let cosine annealing schedule work
     batch_size = 64  
-    val_size = 0.2
     weight_decay = 0.01  # L2 regularization via AdamW
 
     # Load from our custom ufc dataset
@@ -261,11 +322,52 @@ def train_model(X_train, y_train, X_val, y_val):
 
     return model, best_val_loss
 
-def export_to_onnx(model, path):
-    """Export models from PyTorch to ONNX for inference"""
+
+def train_xgboost(X_train, y_train, X_val, y_val):
+    """Train and return an XGBoost classifier.
+    
+    XGBoost learns step-function decision boundaries that complement 
+    the NN's smooth surfaces — giving real ensemble diversity.
+    """
+    xgb_model = xgb.XGBClassifier(
+        n_estimators=400,
+        max_depth=6,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        min_child_weight=3,
+        reg_alpha=0.1,
+        reg_lambda=1.0,
+        objective="multi:softprob",
+        num_class=6,
+        eval_metric="mlogloss",
+        early_stopping_rounds=20,
+        random_state=42,
+        verbosity=1,
+    )
+
+    xgb_model.fit(
+        X_train, y_train,
+        eval_set=[(X_val, y_val)],
+        verbose=True
+    )
+
+    # Evaluate on validation set
+    val_probs = xgb_model.predict_proba(X_val)
+    val_preds = np.argmax(val_probs, axis=1)
+    val_acc = np.mean(val_preds == y_val)
+    val_loss = -np.mean(np.log(val_probs[np.arange(len(y_val)), y_val] + 1e-10))
+
+    print(f"XGBoost val accuracy: {val_acc:.4f}, val logloss: {val_loss:.4f}")
+
+    return xgb_model, val_loss
+
+
+def export_nn_to_onnx(model, path):
+    """Export NN model from PyTorch to ONNX for inference"""
     
     model.eval()
-    dummy_input = torch.randn(1, 56)
+    dummy_input = torch.randn(1, len(FINAL_FEATURES))
 
     torch.onnx.export(
         model, 
@@ -279,51 +381,79 @@ def export_to_onnx(model, path):
         dynamic_axes={'input': {0: 'batch_size'}, 'output': {0: 'batch_size'}}
     )
 
-    print(f"Model successfully converted to {path}")
+    print(f"NN model successfully converted to {path}")
 
-def evaluate_ensemble(models, X_val, y_val):
-    """Run ensemble inference on validation set and return accuracy metrics.
+
+def export_xgb_to_onnx(xgb_model, path):
+    """Export XGBoost model to ONNX for inference in Go backend.
+    
+    Uses onnxmltools to convert, with zipmap disabled so probabilities
+    come out as a proper tensor matching our ONNX runtime setup.
+    """
+    import onnxmltools
+    from onnxmltools.convert.common.data_types import FloatTensorType
+
+    initial_type = [('input', FloatTensorType([None, len(FINAL_FEATURES)]))]
+    onnx_model = onnxmltools.convert_xgboost(
+        xgb_model.get_booster(),
+        initial_types=initial_type,
+        target_opset=12
+    )
+
+    onnxmltools.utils.save_model(onnx_model, path)
+    print(f"XGBoost model successfully converted to {path}")
+
+
+def evaluate_ensemble(nn_model, xgb_model, X_val, y_val):
+    """Run heterogeneous ensemble inference on validation set.
+    
+    Averages softmax probabilities from the NN and predicted probabilities
+    from XGBoost. Different model families provide real diversity.
     
     Returns:
         dict with 'winner' (binary red/blue accuracy) and 'outcome' (6-class accuracy).
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
+    # Get NN probabilities
     val_dataset = UFCDataset(X_val, y_val)
     val_loader = DataLoader(dataset=val_dataset, batch_size=64)
     
-    outcome_correct = 0
-    winner_correct = 0
-    total = 0
+    nn_probs_list = []
+    nn_model.eval()
+    with torch.no_grad():
+        for batch_X, _ in val_loader:
+            batch_X = batch_X.to(device)
+            outputs = nn_model(batch_X)
+            probs = F.softmax(outputs, dim=1)
+            nn_probs_list.append(probs.cpu().numpy())
+    nn_probs = np.vstack(nn_probs_list)
     
-    for batch_X, batch_y in val_loader:
-        batch_X = batch_X.to(device)
-        
-        # Collect softmax predictions from each model
-        all_probs = []
-        for model in models:
-            model.eval()
-            with torch.no_grad():
-                outputs = model(batch_X)
-                probs = F.softmax(outputs, dim=1)
-                all_probs.append(probs)
-        
-        # Average probabilities across ensemble
-        avg_probs = torch.stack(all_probs).mean(dim=0)
-        
-        # 6-class outcome accuracy
-        _, predicted_outcome = torch.max(avg_probs, 1)
-        outcome_correct += (predicted_outcome.cpu() == batch_y).sum().item()
-        
-        # Binary winner accuracy (classes 0-2 = red, 3-5 = blue)
-        predicted_winner = (predicted_outcome >= 3).long()
-        actual_winner = (batch_y >= 3).long()
-        winner_correct += (predicted_winner.cpu() == actual_winner).sum().item()
-        
-        total += batch_y.size(0)
+    # Get XGBoost probabilities
+    xgb_probs = xgb_model.predict_proba(X_val)
     
-    print("Ensemble winner accuracy:", winner_correct / total)
-    print("Ensemble outcome accuracy:", outcome_correct / total)
+    # Average probabilities from both models
+    avg_probs = (nn_probs + xgb_probs) / 2.0
+    
+    # 6-class outcome accuracy
+    predicted_outcome = np.argmax(avg_probs, axis=1)
+    outcome_correct = np.sum(predicted_outcome == y_val)
+    
+    # Binary winner accuracy (classes 0-2 = red, 3-5 = blue)
+    predicted_winner = (predicted_outcome >= 3).astype(int)
+    actual_winner = (y_val >= 3).astype(int)
+    winner_correct = np.sum(predicted_winner == actual_winner)
+    
+    total = len(y_val)
+    
+    print(f"Ensemble winner accuracy: {winner_correct / total:.4f}")
+    print(f"Ensemble outcome accuracy: {outcome_correct / total:.4f}")
+    
+    # Print individual model accuracies for comparison
+    nn_preds = np.argmax(nn_probs, axis=1)
+    xgb_preds = np.argmax(xgb_probs, axis=1)
+    print(f"  NN alone — winner: {np.mean((nn_preds >= 3) == (y_val >= 3)):.4f}, outcome: {np.mean(nn_preds == y_val):.4f}")
+    print(f"  XGB alone — winner: {np.mean((xgb_preds >= 3) == (y_val >= 3)):.4f}, outcome: {np.mean(xgb_preds == y_val):.4f}")
     
     return {
         "winner": winner_correct / total,
@@ -358,43 +488,30 @@ def update_production_accuracy_in_db(winner_accuracy, version):
     })
 
 
-def promote_to_production(models, scaler_params, accuracy):
-    """Export models + scaler to GCS and update Firestore metadata."""
+def promote_to_production(nn_model, xgb_model, scaler_params, accuracy):
+    """Export NN + XGBoost models and scaler to GCS and update Firestore metadata."""
     from google.cloud import storage
     
     client = storage.Client()
     bucket = client.bucket("ufc-proj-models")
     
-    # Push all 4 ONNX files to GCS
-    for i, model in enumerate(models):
-        path = f"model_{i}.onnx"
-        export_to_onnx(model, path)
-        bucket.blob(f"production/{path}").upload_from_filename(path)
+    # Export and upload NN model
+    nn_path = "nn_model.onnx"
+    export_nn_to_onnx(nn_model, nn_path)
+    bucket.blob(f"production/{nn_path}").upload_from_filename(nn_path)
     
-    # Feature order must match what the Go backend uses for calculateFeatures
-    final_features = [
-        "RedWinPct", "BlueWinPct", "WinPctDif","RedKoPct", "BlueKoPct", "KoPctDif",
-        "RedSubPct", "BlueSubPct", "SubPctDif","RedDecPct", "BlueDecPct", "DecPctDif",
-        "RedLossesByKO", "BlueLossesByKO", "LossesByKODif",
-        "RedLossesBySub", "BlueLossesBySub", "LossesBySubDif",
-        "RedLossesByDec", "BlueLossesByDec", "LossesByDecDif", "RedWeightLbs",
-        "HeightDif", "ReachDif", "AgeDif","RedAge", "BlueAge",
-        "SigStrDif", "StrPctDif", "TDDif", "SubAttDif",
-        "RedAvgSigStrLanded", "BlueAvgSigStrLanded","RedAvgTDLanded", "BlueAvgTDLanded",
-        "RedAvgSigStrPct", "BlueAvgSigStrPct","RedAvgSubAtt", "BlueAvgSubAtt",
-        "SigStrAbsorbedDif","RedSigStrAbsorbed", "BlueSigStrAbsorbed","AvgRoundsDif",
-        "RedAvgRounds", "BlueAvgRounds","EloDif", "OpponentEloDif","RedElo", "BlueElo",
-        "WinStreakDif","RedCurrentWinStreak", "BlueCurrentWinStreak",
-        "RedFinishL5", "BlueFinishL5", "FinishL5Dif","FinishPctDif"
-    ]
-
+    # Export and upload XGBoost model
+    xgb_path = "xgb_model.onnx"
+    export_xgb_to_onnx(xgb_model, xgb_path)
+    bucket.blob(f"production/{xgb_path}").upload_from_filename(xgb_path)
+    
     # Serialize scaler as name->value maps + saved_order (matches Go's ScalerMetadata struct)
     means = scaler_params.mean_.tolist()
     stds = scaler_params.scale_.tolist()
     scaler_dict = {
-        "means": {name: val for name, val in zip(final_features, means)},
-        "stds": {name: val for name, val in zip(final_features, stds)},
-        "saved_order": final_features
+        "means": {name: val for name, val in zip(FINAL_FEATURES, means)},
+        "stds": {name: val for name, val in zip(FINAL_FEATURES, stds)},
+        "saved_order": FINAL_FEATURES
     }
     bucket.blob("production/scaler_params.json").upload_from_string(
         json.dumps(scaler_dict)
