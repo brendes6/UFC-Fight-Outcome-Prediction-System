@@ -8,7 +8,7 @@ from datetime import date
 import json
 from model_util import (load_data, clean_and_scale, train_model, train_xgboost,
     export_nn_to_onnx, export_xgb_to_onnx, evaluate_ensemble,
-    get_production_accuracy_from_db, promote_to_production)
+    get_production_accuracy_from_db, promote_to_production, scaler_to_metadata)
 
 # Write logs to local sqlite db
 mlflow.set_tracking_uri("sqlite:///mlflow.db")
@@ -80,10 +80,7 @@ with mlflow.start_run(run_name=f"retrain_{date.today()}"):
     mlflow.log_artifact(xgb_path)
     
     # Serialize scaler params and log as artifact
-    scaler_dict = {
-        "means": scaler.mean_.tolist(),
-        "stds": scaler.scale_.tolist()
-    }
+    scaler_dict = scaler_to_metadata(scaler)
     with open("scaler_params.json", "w") as f:
         json.dump(scaler_dict, f)
     mlflow.log_artifact("scaler_params.json")

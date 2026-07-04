@@ -1,12 +1,11 @@
 import pandas as pd
 import numpy as np
 import os
-from google.cloud import firestore
 
 
 
 def get_elos_and_streaks(df):
-    """ Calculate ELO ratings and win streaks for fighters in the DataFrame.
+    """Calculate pre-fight ELO, opponent ELO, finish form, and loss types.
 
     Input:
         df: DataFrame containing fight data
@@ -18,65 +17,47 @@ def get_elos_and_streaks(df):
     fighter_finish_l5 = {}
     fighter_loss_types = {}
 
-    db = firestore.Client(project="ufc-proj", database="ufcdb")
+    df = df.copy()
+    df["_parsed_date"] = pd.to_datetime(df["Date"], format="mixed")
+    df = df.sort_values("_parsed_date", ascending=True)
 
-    collection_ref = db.collection("ufc-master")
-    docs = collection_ref.stream()
-
-    data = []
-    for doc in docs:
-        doc_dict = doc.to_dict()
-        data.append(doc_dict)
-
-
-    master_df = pd.DataFrame(data)
-
-
-    # Process fights in chronological order
-    for index, row in master_df.iloc[::-1].iterrows():
-
-        # Initialize fighter elos and opponent elos
-        if row["RedFighter"] not in fighter_elos:
-            fighter_elos[row["RedFighter"]] = 1500
-            opponent_elos[row["RedFighter"]] = []
-        if row["BlueFighter"] not in fighter_elos:
-            fighter_elos[row["BlueFighter"]] = 1500
-            opponent_elos[row["BlueFighter"]] = []
-
-        # Initialize fighter finish l5 and fighter loss types
-        if row["RedFighter"] not in fighter_finish_l5:
-            fighter_finish_l5[row["RedFighter"]] = []
-        if row["BlueFighter"] not in fighter_finish_l5:
-            fighter_finish_l5[row["BlueFighter"]] = []
-        if row["RedFighter"] not in fighter_loss_types:
-            fighter_loss_types[row["RedFighter"]] = [0, 0, 0]
-        if row["BlueFighter"] not in fighter_loss_types:
-            fighter_loss_types[row["BlueFighter"]] = [0, 0, 0]
+    # Process fights oldest first and write only information available before
+    # each fight. This avoids leaking final/current fighter strength into
+    # historical validation rows.
+    for index, row in df.iterrows():
+        for fighter in [row["RedFighter"], row["BlueFighter"]]:
+            if fighter not in fighter_elos:
+                fighter_elos[fighter] = 1500
+                opponent_elos[fighter] = []
+            if fighter not in fighter_finish_l5:
+                fighter_finish_l5[fighter] = []
+            if fighter not in fighter_loss_types:
+                fighter_loss_types[fighter] = [0, 0, 0]
 
         opponent_elos[row["RedFighter"]].append(fighter_elos[row["BlueFighter"]])
         opponent_elos[row["BlueFighter"]].append(fighter_elos[row["RedFighter"]])
 
-        # Update elos and streaks based on before-fight data from dictionaries
-        master_df.at[index, "RedElo"] = fighter_elos[row["RedFighter"]]
-        master_df.at[index, "BlueElo"] = fighter_elos[row["BlueFighter"]]
-        master_df.at[index, "RedOpponentElo"] = np.mean(opponent_elos[row["RedFighter"]])
-        master_df.at[index, "BlueOpponentElo"] = np.mean(opponent_elos[row["BlueFighter"]])
+        # Assign pre-fight values from dictionaries.
+        df.at[index, "RedElo"] = fighter_elos[row["RedFighter"]]
+        df.at[index, "BlueElo"] = fighter_elos[row["BlueFighter"]]
+        df.at[index, "RedOpponentElo"] = np.mean(opponent_elos[row["RedFighter"]])
+        df.at[index, "BlueOpponentElo"] = np.mean(opponent_elos[row["BlueFighter"]])
         if len(fighter_finish_l5[row["RedFighter"]]) < 5 and len(fighter_finish_l5[row["RedFighter"]]) > 0:
             ratio = 5 / len(fighter_finish_l5[row["RedFighter"]])
-            master_df.at[index, "RedFinishL5"] = sum([n for n in fighter_finish_l5[row["RedFighter"]][-5:]]) * ratio
+            df.at[index, "RedFinishL5"] = sum([n for n in fighter_finish_l5[row["RedFighter"]][-5:]]) * ratio
         else:
-            master_df.at[index, "RedFinishL5"] = sum([n for n in fighter_finish_l5[row["RedFighter"]][-5:]])
+            df.at[index, "RedFinishL5"] = sum([n for n in fighter_finish_l5[row["RedFighter"]][-5:]])
         if len(fighter_finish_l5[row["BlueFighter"]]) < 5 and len(fighter_finish_l5[row["BlueFighter"]]) > 0:
             ratio = 5 / len(fighter_finish_l5[row["BlueFighter"]])
-            master_df.at[index, "BlueFinishL5"] = sum([n for n in fighter_finish_l5[row["BlueFighter"]][-5:]]) * ratio
+            df.at[index, "BlueFinishL5"] = sum([n for n in fighter_finish_l5[row["BlueFighter"]][-5:]]) * ratio
         else:
-            master_df.at[index, "BlueFinishL5"] = sum([n for n in fighter_finish_l5[row["BlueFighter"]][-5:]])
-        master_df.at[index, "RedLossesByKO"] = fighter_loss_types[row["RedFighter"]][0]
-        master_df.at[index, "RedLossesBySub"] = fighter_loss_types[row["RedFighter"]][1]
-        master_df.at[index, "RedLossesByDec"] = fighter_loss_types[row["RedFighter"]][2]
-        master_df.at[index, "BlueLossesByKO"] = fighter_loss_types[row["BlueFighter"]][0]
-        master_df.at[index, "BlueLossesBySub"] = fighter_loss_types[row["BlueFighter"]][1]
-        master_df.at[index, "BlueLossesByDec"] = fighter_loss_types[row["BlueFighter"]][2]
+            df.at[index, "BlueFinishL5"] = sum([n for n in fighter_finish_l5[row["BlueFighter"]][-5:]])
+        df.at[index, "RedLossesByKO"] = fighter_loss_types[row["RedFighter"]][0]
+        df.at[index, "RedLossesBySub"] = fighter_loss_types[row["RedFighter"]][1]
+        df.at[index, "RedLossesByDec"] = fighter_loss_types[row["RedFighter"]][2]
+        df.at[index, "BlueLossesByKO"] = fighter_loss_types[row["BlueFighter"]][0]
+        df.at[index, "BlueLossesBySub"] = fighter_loss_types[row["BlueFighter"]][1]
+        df.at[index, "BlueLossesByDec"] = fighter_loss_types[row["BlueFighter"]][2]
         
 
         # Get expected values
@@ -84,7 +65,7 @@ def get_elos_and_streaks(df):
         E2 = 1 / (1 + 10**((fighter_elos[row["RedFighter"]] - fighter_elos[row["BlueFighter"]]) / 400))
 
         # Higher k value for finishes
-        if row["Finish"] in ["KO/TKO", "Submission"]:
+        if row["Finish"] in ["KO/TKO", "SUB", "Submission"]:
             k_value = 40
         elif row["Finish"] == "U-DEC":
             k_value = 30
@@ -97,7 +78,8 @@ def get_elos_and_streaks(df):
         if row["Winner"] == "Red":
             fighter_elos[row["RedFighter"]] = fighter_elos[row["RedFighter"]] + k_value*(1-E1)
             fighter_elos[row["BlueFighter"]] = fighter_elos[row["BlueFighter"]] + k_value*(0-E2)
-            if row["Finish"] in ["U-DEC", "S-DEC"]:
+            fighter_finish_l5[row["BlueFighter"]].append(0)
+            if row["Finish"] in ["U-DEC", "S-DEC", "M-DEC", "DEC"]:
                 fighter_finish_l5[row["RedFighter"]].append(0)
                 fighter_loss_types[row["BlueFighter"]][2] += 1
             else:
@@ -109,7 +91,8 @@ def get_elos_and_streaks(df):
         elif row["Winner"] == "Blue":
             fighter_elos[row["BlueFighter"]] = fighter_elos[row["BlueFighter"]] + k_value*(1-E2) 
             fighter_elos[row["RedFighter"]] = fighter_elos[row["RedFighter"]] + k_value*(0-E1)
-            if row["Finish"] in ["U-DEC", "S-DEC"]:
+            fighter_finish_l5[row["RedFighter"]].append(0)
+            if row["Finish"] in ["U-DEC", "S-DEC", "M-DEC", "DEC"]:
                 fighter_finish_l5[row["BlueFighter"]].append(0)
                 fighter_loss_types[row["RedFighter"]][2] += 1
             else:
@@ -118,31 +101,7 @@ def get_elos_and_streaks(df):
                 elif row["Finish"] == "SUB":
                     fighter_loss_types[row["RedFighter"]][1] += 1
                 fighter_finish_l5[row["BlueFighter"]].append(1)
-
-
-    for i, row in df.iterrows():
-        df.at[i, "RedElo"] = fighter_elos[row["RedFighter"]]
-        df.at[i, "BlueElo"] = fighter_elos[row["BlueFighter"]]
-        df.at[i, "RedOpponentElo"] = np.mean(opponent_elos[row["RedFighter"]])
-        df.at[i, "BlueOpponentElo"] = np.mean(opponent_elos[row["BlueFighter"]])
-        df.at[i, "RedLossesByKO"] = fighter_loss_types[row["RedFighter"]][0]
-        df.at[i, "RedLossesBySub"] = fighter_loss_types[row["RedFighter"]][1]
-        df.at[i, "RedLossesByDec"] = fighter_loss_types[row["RedFighter"]][2]
-        df.at[i, "BlueLossesByKO"] = fighter_loss_types[row["BlueFighter"]][0]
-        df.at[i, "BlueLossesBySub"] = fighter_loss_types[row["BlueFighter"]][1]
-        df.at[i, "BlueLossesByDec"] = fighter_loss_types[row["BlueFighter"]][2]
-        if len(fighter_finish_l5[row["RedFighter"]]) < 5 and len(fighter_finish_l5[row["RedFighter"]]) > 0:
-            ratio = 5 / len(fighter_finish_l5[row["RedFighter"]])
-            df.at[i, "RedFinishL5"] = sum([n for n in fighter_finish_l5[row["RedFighter"]][-5:]]) * ratio
-        else:
-            df.at[i, "RedFinishL5"] = sum([n for n in fighter_finish_l5[row["RedFighter"]][-5:]])
-        if len(fighter_finish_l5[row["BlueFighter"]]) < 5 and len(fighter_finish_l5[row["BlueFighter"]]) > 0:
-            ratio = 5 / len(fighter_finish_l5[row["BlueFighter"]])
-            df.at[i, "BlueFinishL5"] = sum([n for n in fighter_finish_l5[row["BlueFighter"]][-5:]]) * ratio
-        else:
-            df.at[i, "BlueFinishL5"] = sum([n for n in fighter_finish_l5[row["BlueFighter"]][-5:]])
-    
-    return df
+    return df.sort_index().drop(columns=["_parsed_date"])
 
 
 def get_defense_data(df):

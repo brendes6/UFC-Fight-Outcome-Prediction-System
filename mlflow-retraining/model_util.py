@@ -82,6 +82,17 @@ FINAL_FEATURES = [
     "RedCurrentWinStreak", "BlueCurrentWinStreak", "RedFinishL5", "BlueFinishL5", "FinishL5Dif","FinishPctDif"
 ]
 
+
+def scaler_to_metadata(scaler):
+    """Serialize scaler params in the exact format consumed by the Go backend."""
+    means = scaler.mean_.tolist()
+    stds = scaler.scale_.tolist()
+    return {
+        "means": {name: val for name, val in zip(FINAL_FEATURES, means)},
+        "stds": {name: val for name, val in zip(FINAL_FEATURES, stds)},
+        "saved_order": FINAL_FEATURES
+    }
+
 # Mapping for red/blue swap augmentation — defines how feature indices
 # rearrange when we flip fighter corners to remove positional bias
 def _build_swap_indices():
@@ -439,8 +450,10 @@ def evaluate_ensemble(nn_model, xgb_model, X_val, y_val):
     predicted_outcome = np.argmax(avg_probs, axis=1)
     outcome_correct = np.sum(predicted_outcome == y_val)
     
-    # Binary winner accuracy (classes 0-2 = red, 3-5 = blue)
-    predicted_winner = (predicted_outcome >= 3).astype(int)
+    # Binary winner accuracy uses summed side probability, matching production.
+    red_win_probs = avg_probs[:, 0:3].sum(axis=1)
+    blue_win_probs = avg_probs[:, 3:6].sum(axis=1)
+    predicted_winner = (blue_win_probs > red_win_probs).astype(int)
     actual_winner = (y_val >= 3).astype(int)
     winner_correct = np.sum(predicted_winner == actual_winner)
     
@@ -452,8 +465,10 @@ def evaluate_ensemble(nn_model, xgb_model, X_val, y_val):
     # Print individual model accuracies for comparison
     nn_preds = np.argmax(nn_probs, axis=1)
     xgb_preds = np.argmax(xgb_probs, axis=1)
-    print(f"  NN alone — winner: {np.mean((nn_preds >= 3) == (y_val >= 3)):.4f}, outcome: {np.mean(nn_preds == y_val):.4f}")
-    print(f"  XGB alone — winner: {np.mean((xgb_preds >= 3) == (y_val >= 3)):.4f}, outcome: {np.mean(xgb_preds == y_val):.4f}")
+    nn_winners = (nn_probs[:, 3:6].sum(axis=1) > nn_probs[:, 0:3].sum(axis=1)).astype(int)
+    xgb_winners = (xgb_probs[:, 3:6].sum(axis=1) > xgb_probs[:, 0:3].sum(axis=1)).astype(int)
+    print(f"  NN alone — winner: {np.mean(nn_winners == actual_winner):.4f}, outcome: {np.mean(nn_preds == y_val):.4f}")
+    print(f"  XGB alone — winner: {np.mean(xgb_winners == actual_winner):.4f}, outcome: {np.mean(xgb_preds == y_val):.4f}")
     
     return {
         "winner": winner_correct / total,
@@ -505,14 +520,7 @@ def promote_to_production(nn_model, xgb_model, scaler_params, accuracy):
     export_xgb_to_onnx(xgb_model, xgb_path)
     bucket.blob(f"production/{xgb_path}").upload_from_filename(xgb_path)
     
-    # Serialize scaler as name->value maps + saved_order (matches Go's ScalerMetadata struct)
-    means = scaler_params.mean_.tolist()
-    stds = scaler_params.scale_.tolist()
-    scaler_dict = {
-        "means": {name: val for name, val in zip(FINAL_FEATURES, means)},
-        "stds": {name: val for name, val in zip(FINAL_FEATURES, stds)},
-        "saved_order": FINAL_FEATURES
-    }
+    scaler_dict = scaler_to_metadata(scaler_params)
     bucket.blob("production/scaler_params.json").upload_from_string(
         json.dumps(scaler_dict)
     )

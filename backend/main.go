@@ -25,6 +25,17 @@ const gcsBucket = "ufc-proj-models"
 // Model file names: one neural network, one XGBoost (heterogeneous ensemble)
 var modelFiles = [numModels]string{"nn_model.onnx", "xgb_model.onnx"}
 
+var finalFeatures = []string{
+	"RedWinPct", "BlueWinPct", "WinPctDif", "RedKoPct", "BlueKoPct", "KoPctDif",
+	"RedSubPct", "BlueSubPct", "SubPctDif", "RedDecPct", "BlueDecPct", "DecPctDif", "RedLossesByKO", "BlueLossesByKO", "LossesByKODif",
+	"RedLossesBySub", "BlueLossesBySub", "LossesBySubDif", "RedLossesByDec", "BlueLossesByDec", "LossesByDecDif", "RedWeightLbs",
+	"HeightDif", "ReachDif", "AgeDif", "RedAge", "BlueAge", "SigStrDif", "StrPctDif", "TDDif", "SubAttDif",
+	"RedAvgSigStrLanded", "BlueAvgSigStrLanded", "RedAvgTDLanded", "BlueAvgTDLanded", "RedAvgSigStrPct", "BlueAvgSigStrPct",
+	"RedAvgSubAtt", "BlueAvgSubAtt", "SigStrAbsorbedDif", "RedSigStrAbsorbed", "BlueSigStrAbsorbed", "AvgRoundsDif",
+	"RedAvgRounds", "BlueAvgRounds", "EloDif", "OpponentEloDif", "RedElo", "BlueElo", "WinStreakDif",
+	"RedCurrentWinStreak", "BlueCurrentWinStreak", "RedFinishL5", "BlueFinishL5", "FinishL5Dif", "FinishPctDif",
+}
+
 // Fighter struct - stores all basic fighter stats
 // used for eventual input tensor formatting
 type Fighter struct {
@@ -69,6 +80,12 @@ type ScalerMetadata struct {
 	SavedOrder []string           `json:"saved_order"`
 }
 
+type rawScalerMetadata struct {
+	Means      json.RawMessage `json:"means"`
+	Stds       json.RawMessage `json:"stds"`
+	SavedOrder []string        `json:"saved_order"`
+}
+
 // Struct for inference results structuring
 type PredictionResult struct {
 	RedKO   float32 `json:"red_ko"`
@@ -93,6 +110,76 @@ func softmax(logits []float32) []float32 {
 	return probabilities
 }
 
+func valuesByFeature(raw json.RawMessage, names []string, fieldName string) (map[string]float64, error) {
+	values := map[string]float64{}
+	if err := json.Unmarshal(raw, &values); err == nil {
+		return values, nil
+	}
+
+	var orderedValues []float64
+	if err := json.Unmarshal(raw, &orderedValues); err != nil {
+		return nil, fmt.Errorf("invalid scaler %s: %v", fieldName, err)
+	}
+	if len(orderedValues) != len(names) {
+		return nil, fmt.Errorf("invalid scaler %s length: got %d, want %d", fieldName, len(orderedValues), len(names))
+	}
+	for i, name := range names {
+		values[name] = orderedValues[i]
+	}
+	return values, nil
+}
+
+func parseScalerMetadata(data []byte) (*ScalerMetadata, error) {
+	var raw rawScalerMetadata
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+
+	savedOrder := raw.SavedOrder
+	if len(savedOrder) == 0 {
+		savedOrder = finalFeatures
+	}
+
+	means, err := valuesByFeature(raw.Means, savedOrder, "means")
+	if err != nil {
+		return nil, err
+	}
+	stds, err := valuesByFeature(raw.Stds, savedOrder, "stds")
+	if err != nil {
+		return nil, err
+	}
+
+	meta := &ScalerMetadata{
+		Means:      means,
+		Stds:       stds,
+		SavedOrder: savedOrder,
+	}
+	if err := validateScalerMetadata(meta); err != nil {
+		return nil, err
+	}
+	return meta, nil
+}
+
+func validateScalerMetadata(meta *ScalerMetadata) error {
+	if len(meta.SavedOrder) != len(finalFeatures) {
+		return fmt.Errorf("invalid scaler feature count: got %d, want %d", len(meta.SavedOrder), len(finalFeatures))
+	}
+	for i, name := range finalFeatures {
+		if meta.SavedOrder[i] != name {
+			return fmt.Errorf("invalid scaler feature order at %d: got %s, want %s", i, meta.SavedOrder[i], name)
+		}
+		mean, ok := meta.Means[name]
+		if !ok || math.IsNaN(mean) || math.IsInf(mean, 0) {
+			return fmt.Errorf("invalid scaler mean for %s", name)
+		}
+		std, ok := meta.Stds[name]
+		if !ok || std == 0 || math.IsNaN(std) || math.IsInf(std, 0) {
+			return fmt.Errorf("invalid scaler std for %s", name)
+		}
+	}
+	return nil
+}
+
 // Downloads scaler params JSON from GCS and parses into ScalerMetadata
 func loadScalerFromGCS(ctx context.Context) *ScalerMetadata {
 	client, err := storage.NewClient(ctx)
@@ -112,13 +199,13 @@ func loadScalerFromGCS(ctx context.Context) *ScalerMetadata {
 		panic(fmt.Sprintf("Failed to read scaler data: %v", err))
 	}
 
-	var meta ScalerMetadata
-	if err := json.Unmarshal(data, &meta); err != nil {
+	meta, err := parseScalerMetadata(data)
+	if err != nil {
 		panic(fmt.Sprintf("Failed to parse scaler JSON: %v", err))
 	}
 
 	fmt.Printf("Loaded scaler from GCS (%d features)\n", len(meta.SavedOrder))
-	return &meta
+	return meta
 }
 
 // Downloads ONNX model files from GCS to local disk
@@ -176,8 +263,8 @@ type ModelSession struct {
 	InputTensor  *ort.Tensor[float32]
 	OutputTensor *ort.Tensor[float32]
 	// XGBoost ONNX models output labels + probabilities separately
-	LabelTensor  *ort.Tensor[int64]
-	IsTreeModel  bool // true for XGBoost, false for NN
+	LabelTensor *ort.Tensor[int64]
+	IsTreeModel bool // true for XGBoost, false for NN
 }
 
 // Initialize a neural network ONNX model session
@@ -393,7 +480,10 @@ func calculateFeatures(red, blue *Fighter, meta *ScalerMetadata) []float32 {
 
 	// From our metadata, calculate scaled values and add to our features slice
 	for i, name := range meta.SavedOrder {
-		rawValue := rawStats[name]
+		rawValue, ok := rawStats[name]
+		if !ok {
+			panic(fmt.Sprintf("missing raw feature %s", name))
+		}
 		mean := meta.Means[name]
 		std := meta.Stds[name]
 
@@ -433,7 +523,6 @@ func main() {
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		panic(fmt.Sprintf("Failed to connect to Redis: %v", err))
 	}
-
 
 	// Concurrently initialize firestore, load models from GCS, and load scaler from GCS
 	dbChan := make(chan *firestore.Client, 1)
@@ -524,9 +613,9 @@ func main() {
 		ensembleProbs := runEnsembleInference(onnxSessions, features)
 
 		result := PredictionResult{
-			RedKO:   ensembleProbs[0], RedSub: ensembleProbs[1],
-			RedDec:  ensembleProbs[2],
-			BlueKO:  ensembleProbs[3], BlueSub: ensembleProbs[4],
+			RedKO: ensembleProbs[0], RedSub: ensembleProbs[1],
+			RedDec: ensembleProbs[2],
+			BlueKO: ensembleProbs[3], BlueSub: ensembleProbs[4],
 			BlueDec: ensembleProbs[5],
 		}
 
