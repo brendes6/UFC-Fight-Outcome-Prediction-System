@@ -184,9 +184,14 @@ fighter_pages/
 .DS_Store
 scripts-old/
 services-old/
-
-scrape_challenge.py
-reclean_stats.py
 *.onnx
 *.db
 *.csv
+
+# Local-only scraper interstitial handler and one-off cleanup script
+scrape_challenge.py
+reclean_stats.py
+
+# MLflow local experiment tracking + generated training artifacts
+mlruns/
+scaler_params.json

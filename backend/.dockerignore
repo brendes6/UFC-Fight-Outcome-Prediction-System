@@ -1,0 +1,5 @@
+# Local files not needed in the image.
+# Models are downloaded from GCS at runtime; onnxruntime.so (*.so) is kept.
+.env
+.DS_Store
+*.onnx

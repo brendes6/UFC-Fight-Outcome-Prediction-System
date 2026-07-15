@@ -1,0 +1,8 @@
+# Generated locally by training runs; recreated inside the image at runtime.
+.DS_Store
+__pycache__/
+*.pyc
+mlruns/
+mlflow.db
+*.onnx
+scaler_params.json
