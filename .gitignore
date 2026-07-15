@@ -185,7 +185,7 @@ fighter_pages/
 scripts-old/
 services-old/
 
-scrape_util.py
+scrape_challenge.py
 reclean_stats.py
 *.onnx
 *.db

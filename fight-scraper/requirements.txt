@@ -3,7 +3,7 @@ numpy
 bs4
 requests
 python-dotenv
+python-dateutil
 google-cloud-firestore
-datetime
 
 
