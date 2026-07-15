@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getPredictions } from "./Call";
+import { getPredictions } from "../api/client";
 import Prediction from "./Prediction";
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';

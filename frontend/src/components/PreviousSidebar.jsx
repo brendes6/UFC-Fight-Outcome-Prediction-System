@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getPrevious } from "./Call";
+import { getPrevious } from "../api/client";
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -107,7 +107,7 @@ function PreviousSidebar({ onFightSelect }) {
     };
   };
 
-  const handleCardClick = (e, index, fight) => {
+  const handleCardClick = (e, index) => {
     e.stopPropagation();
     setExpandedIndex(expandedIndex === index ? null : index);
   };
@@ -195,7 +195,7 @@ function PreviousSidebar({ onFightSelect }) {
                   '&:hover': { bgcolor: 'action.hover' },
                   transition: 'all 0.2s',
                 }}
-                onClick={(e) => handleCardClick(e, index, fight)}
+                onClick={(e) => handleCardClick(e, index)}
               >
                 <CardContent sx={{ p: 0.75, '&:last-child': { pb: 0.75 } }}>
                   <Stack spacing={0.3}>

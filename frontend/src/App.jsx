@@ -29,11 +29,8 @@ function App({ getRoot }) {
   const [fightSelectHandler, setFightSelectHandler] = useState(null);
 
   useEffect(() => {
-    const fetchRoot = async () => {
-      const data = await getRoot();
-      console.log(data);
-    }
-    fetchRoot();
+    // Warm up the prediction service so the first real request isn't cold.
+    getRoot();
   }, [getRoot]);
   return (
     <ThemeProvider theme={theme}>
