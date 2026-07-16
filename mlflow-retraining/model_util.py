@@ -11,6 +11,7 @@ from sklearn.model_selection import train_test_split
 from google.cloud import firestore
 import xgboost as xgb
 import data_cleaning
+from augment import FINAL_FEATURES, swap_augment
 import json
 from datetime import date
 
@@ -70,17 +71,8 @@ class NN(nn.Module):
         x = self.fc5(x)
         return x
 
-# Final feature list for model input
-FINAL_FEATURES = [
-    "RedWinPct", "BlueWinPct", "WinPctDif","RedKoPct", "BlueKoPct", "KoPctDif",
-    "RedSubPct", "BlueSubPct", "SubPctDif","RedDecPct", "BlueDecPct", "DecPctDif","RedLossesByKO", "BlueLossesByKO", "LossesByKODif",
-    "RedLossesBySub", "BlueLossesBySub", "LossesBySubDif","RedLossesByDec", "BlueLossesByDec", "LossesByDecDif", "RedWeightLbs",
-    "HeightDif", "ReachDif", "AgeDif","RedAge", "BlueAge","SigStrDif", "StrPctDif", "TDDif", "SubAttDif",
-    "RedAvgSigStrLanded", "BlueAvgSigStrLanded","RedAvgTDLanded", "BlueAvgTDLanded","RedAvgSigStrPct", "BlueAvgSigStrPct",
-    "RedAvgSubAtt", "BlueAvgSubAtt","SigStrAbsorbedDif","RedSigStrAbsorbed", "BlueSigStrAbsorbed","AvgRoundsDif",
-    "RedAvgRounds", "BlueAvgRounds","EloDif", "OpponentEloDif","RedElo", "BlueElo", "WinStreakDif",
-    "RedCurrentWinStreak", "BlueCurrentWinStreak", "RedFinishL5", "BlueFinishL5", "FinishL5Dif","FinishPctDif"
-]
+# Final feature list and the red/blue swap-augmentation logic live in augment.py
+# (numpy-only) so they can be unit-tested without the full training stack.
 
 
 def scaler_to_metadata(scaler):
@@ -92,56 +84,6 @@ def scaler_to_metadata(scaler):
         "stds": {name: val for name, val in zip(FINAL_FEATURES, stds)},
         "saved_order": FINAL_FEATURES
     }
-
-# Mapping for red/blue swap augmentation — defines how feature indices
-# rearrange when we flip fighter corners to remove positional bias
-def _build_swap_indices():
-    """Build index mapping for swapping red/blue features.
-    
-    Returns (swap_order, negate_mask):
-        swap_order: array of indices that rearranges features for a red/blue swap
-        negate_mask: array of +1/-1 to negate difference features after swap
-    """
-    n = len(FINAL_FEATURES)
-    swap_order = list(range(n))
-    negate_mask = np.ones(n)
-
-    for i, feat in enumerate(FINAL_FEATURES):
-        # Find Red<->Blue swappable pairs
-        if feat.startswith("Red"):
-            blue_name = "Blue" + feat[3:]
-            if blue_name in FINAL_FEATURES:
-                j = FINAL_FEATURES.index(blue_name)
-                swap_order[i] = j
-                swap_order[j] = i
-        # Negate difference features (they flip sign when corners swap)
-        if feat.endswith("Dif"):
-            negate_mask[i] = -1.0
-
-    return np.array(swap_order), negate_mask
-
-SWAP_ORDER, NEGATE_MASK = _build_swap_indices()
-
-# Label mapping when corners swap: RedKO(0)↔BlueKO(3), RedSub(1)↔BlueSub(4), RedDec(2)↔BlueDec(5)
-LABEL_SWAP = {0: 3, 1: 4, 2: 5, 3: 0, 4: 1, 5: 2}
-
-
-def swap_augment(X, y):
-    """Create mirror copies of all samples with red/blue corners swapped.
-    
-    This removes the inherent red-corner-is-favorite bias in UFC data.
-    For each sample, we create a copy where:
-      - Red and Blue individual features swap positions
-      - Difference features get negated
-      - Labels swap (RedKO↔BlueKO, RedSub↔BlueSub, RedDec↔BlueDec)
-    """
-    X_swapped = X[:, SWAP_ORDER] * NEGATE_MASK
-    y_swapped = np.array([LABEL_SWAP[label] for label in y])
-    
-    X_aug = np.vstack([X, X_swapped])
-    y_aug = np.concatenate([y, y_swapped])
-    
-    return X_aug, y_aug
 
 
 def clean_up_data(df: pd.DataFrame) -> pd.DataFrame:

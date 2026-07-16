@@ -1,4 +1,4 @@
-module main
+module ufc-backend
 
 go 1.25.5
 

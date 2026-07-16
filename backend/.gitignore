@@ -1,0 +1,3 @@
+# Compiled Go binaries (produced by `go build`)
+/server
+/ufc-backend

@@ -1,5 +1,7 @@
 # UFC Fight Prediction & Analytics Platform
 
+[![CI](https://github.com/brendes6/UFC-Fight-Outcome-Prediction-System/actions/workflows/ci.yml/badge.svg)](https://github.com/brendes6/UFC-Fight-Outcome-Prediction-System/actions/workflows/ci.yml)
+
 ![Go](https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white)
@@ -128,6 +130,18 @@ Each service is independently containerized (see each directory's `Dockerfile`).
 platform requires Google Cloud credentials (Firestore + GCS), a Redis instance, and an
 `ODDS_API_KEY` for the odds job; per-service dependencies live in each service's `requirements.txt`
 (Python) or `go.mod` (Go).
+
+## Testing
+
+Unit tests cover the deterministic core of each service, and a GitHub Actions workflow
+([`ci.yml`](.github/workflows/ci.yml)) runs them on every push and pull request:
+
+- **Backend (Go):** softmax, scaler-metadata parsing/validation, and feature engineering — `cd backend && go test ./...`
+- **Frontend (React):** fighter-tag normalization and the API client — `cd frontend && npm test`
+- **ML (Python):** red/blue corner-swap augmentation — `pytest mlflow-retraining`
+
+The suite deliberately targets pure logic (no network or database), so it stays fast and
+deterministic; the I/O layers (GCS, Firestore, Redis, scraping) are left to integration testing.
 
 ## Motivation
 
