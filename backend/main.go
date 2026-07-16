@@ -5,10 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
+	"net/http"
 	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -204,7 +208,7 @@ func loadScalerFromGCS(ctx context.Context) *ScalerMetadata {
 		panic(fmt.Sprintf("Failed to parse scaler JSON: %v", err))
 	}
 
-	fmt.Printf("Loaded scaler from GCS (%d features)\n", len(meta.SavedOrder))
+	slog.Info("loaded scaler from GCS", "features", len(meta.SavedOrder))
 	return meta
 }
 
@@ -239,7 +243,7 @@ func downloadModelsFromGCS(ctx context.Context) {
 			if _, err := io.Copy(file, reader); err != nil {
 				panic(fmt.Sprintf("Failed to write %s: %v", fileName, err))
 			}
-			fmt.Printf("Downloaded %s from GCS\n", fileName)
+			slog.Info("downloaded model from GCS", "file", fileName)
 		}(i)
 	}
 	wg.Wait()
@@ -259,6 +263,9 @@ func initFirestore(ctx context.Context) *firestore.Client {
 
 // ModelSession struct storing information for our ONNX session
 type ModelSession struct {
+	// mutex serializes access to the reusable input/output tensors below so that
+	// concurrent /predict requests can safely share a single session.
+	mu           sync.Mutex
 	Session      *ort.AdvancedSession
 	InputTensor  *ort.Tensor[float32]
 	OutputTensor *ort.Tensor[float32]
@@ -269,91 +276,129 @@ type ModelSession struct {
 
 // Initialize a neural network ONNX model session
 // NN outputs raw logits as a single [1,6] tensor
-func initNNModel(modelPath string) ModelSession {
-	inputShape := ort.NewShape(1, 56)
-	outputShape := ort.NewShape(1, 6)
+func initNNModel(modelPath string) (*ModelSession, error) {
+	inputTensor, err := ort.NewEmptyTensor[float32](ort.NewShape(1, 56))
+	if err != nil {
+		return nil, fmt.Errorf("create input tensor: %w", err)
+	}
+	outputTensor, err := ort.NewEmptyTensor[float32](ort.NewShape(1, 6))
+	if err != nil {
+		return nil, fmt.Errorf("create output tensor: %w", err)
+	}
 
-	inputTensor, _ := ort.NewEmptyTensor[float32](inputShape)
-	outputTensor, _ := ort.NewEmptyTensor[float32](outputShape)
-
-	session, _ := ort.NewAdvancedSession(modelPath,
+	session, err := ort.NewAdvancedSession(modelPath,
 		[]string{"input"}, []string{"output"},
 		[]ort.Value{inputTensor}, []ort.Value{outputTensor}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create NN session: %w", err)
+	}
 
-	return ModelSession{
+	return &ModelSession{
 		Session:      session,
 		InputTensor:  inputTensor,
 		OutputTensor: outputTensor,
 		IsTreeModel:  false,
-	}
+	}, nil
 }
 
 // Initialize an XGBoost ONNX model session
 // XGBoost ONNX models output (labels int64, probabilities float32)
-func initXGBModel(modelPath string) ModelSession {
-	inputShape := ort.NewShape(1, 56)
-	outputShape := ort.NewShape(1, 6)
+func initXGBModel(modelPath string) (*ModelSession, error) {
+	inputTensor, err := ort.NewEmptyTensor[float32](ort.NewShape(1, 56))
+	if err != nil {
+		return nil, fmt.Errorf("create input tensor: %w", err)
+	}
+	labelTensor, err := ort.NewEmptyTensor[int64](ort.NewShape(1))
+	if err != nil {
+		return nil, fmt.Errorf("create label tensor: %w", err)
+	}
+	outputTensor, err := ort.NewEmptyTensor[float32](ort.NewShape(1, 6))
+	if err != nil {
+		return nil, fmt.Errorf("create output tensor: %w", err)
+	}
 
-	inputTensor, _ := ort.NewEmptyTensor[float32](inputShape)
-	labelTensor, _ := ort.NewEmptyTensor[int64](ort.NewShape(1))
-	outputTensor, _ := ort.NewEmptyTensor[float32](outputShape)
-
-	session, _ := ort.NewAdvancedSession(modelPath,
+	session, err := ort.NewAdvancedSession(modelPath,
 		[]string{"input"}, []string{"label", "probabilities"},
 		[]ort.Value{inputTensor}, []ort.Value{labelTensor, outputTensor}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create XGB session: %w", err)
+	}
 
-	return ModelSession{
+	return &ModelSession{
 		Session:      session,
 		InputTensor:  inputTensor,
 		OutputTensor: outputTensor,
 		LabelTensor:  labelTensor,
 		IsTreeModel:  true,
-	}
+	}, nil
 }
 
 // Initialize all ONNX models concurrently
 // Downloads models from GCS first, then loads them into ONNX sessions
-func initAllModels(ctx context.Context) []ModelSession {
+func initAllModels(ctx context.Context) []*ModelSession {
 	// Download latest models from GCS blob storage
 	downloadModelsFromGCS(ctx)
 
 	ort.SetSharedLibraryPath("onnxruntime.so")
-	ort.InitializeEnvironment()
+	if err := ort.InitializeEnvironment(); err != nil {
+		panic(fmt.Sprintf("Failed to initialize ONNX runtime: %v", err))
+	}
 
-	sessions := make([]ModelSession, numModels)
+	sessions := make([]*ModelSession, numModels)
+	errs := make([]error, numModels)
 	var wg sync.WaitGroup
 
 	for i := 0; i < numModels; i++ {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			modelPath := modelFiles[idx]
-			// Initialize based on model type
+			var (
+				ms  *ModelSession
+				err error
+			)
+			// Model 0 is the neural network; the rest are XGBoost.
 			if idx == 0 {
-				sessions[idx] = initNNModel(modelPath)
+				ms, err = initNNModel(modelFiles[idx])
 			} else {
-				sessions[idx] = initXGBModel(modelPath)
+				ms, err = initXGBModel(modelFiles[idx])
 			}
+			if err != nil {
+				errs[idx] = err
+				return
+			}
+			sessions[idx] = ms
 		}(i)
 	}
 	wg.Wait()
+
+	for idx, err := range errs {
+		if err != nil {
+			panic(fmt.Sprintf("Failed to initialize model %s: %v", modelFiles[idx], err))
+		}
+	}
 	return sessions
 }
 
 // Function to run inference using our ONNX session
 // Returns probabilities: for NN models, applies softmax to logits;
-// for XGBoost models, output is already probabilities
-func runInference(ms ModelSession, features []float32) []float32 {
-	// Get data of our input tensor
-	inputData := ms.InputTensor.GetData()
-	copy(inputData, features)
+// for XGBoost models, output is already probabilities.
+//
+// Each ModelSession owns one reusable input/output tensor, so concurrent
+// requests must not run the same session at once. The mutex serializes access
+// per model while still allowing different models to run in parallel.
+func runInference(ms *ModelSession, features []float32) ([]float32, error) {
+	ms.mu.Lock()
+	copy(ms.InputTensor.GetData(), features)
 
-	// Run forward pass on our model
-	ms.Session.Run()
+	if err := ms.Session.Run(); err != nil {
+		ms.mu.Unlock()
+		return nil, fmt.Errorf("model run failed: %w", err)
+	}
 
-	// Copy output data (important: copy before another goroutine modifies the tensor)
+	// Copy output before releasing the lock (the tensor is reused next call).
 	output := make([]float32, len(ms.OutputTensor.GetData()))
 	copy(output, ms.OutputTensor.GetData())
+	ms.mu.Unlock()
 
 	// NN outputs raw logits → apply softmax
 	// XGBoost ONNX outputs probabilities directly
@@ -361,15 +406,16 @@ func runInference(ms ModelSession, features []float32) []float32 {
 		output = softmax(output)
 	}
 
-	return output
+	return output, nil
 }
 
 // Run all models concurrently and average their probabilities.
 // Heterogeneous ensemble: NN (smooth boundaries) + XGBoost (step boundaries)
 // provides real diversity — different model families make different errors.
-func runEnsembleInference(sessions []ModelSession, features []float32) []float32 {
+func runEnsembleInference(sessions []*ModelSession, features []float32) ([]float32, error) {
 	numClasses := 6
 	results := make([][]float32, numModels)
+	errs := make([]error, numModels)
 	var wg sync.WaitGroup
 
 	// Run each model concurrently
@@ -377,10 +423,21 @@ func runEnsembleInference(sessions []ModelSession, features []float32) []float32
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			results[idx] = runInference(sessions[idx], features)
+			probs, err := runInference(sessions[idx], features)
+			if err != nil {
+				errs[idx] = err
+				return
+			}
+			results[idx] = probs
 		}(i)
 	}
 	wg.Wait()
+
+	for _, err := range errs {
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// Average probabilities across both models
 	averaged := make([]float32, numClasses)
@@ -393,7 +450,7 @@ func runEnsembleInference(sessions []ModelSession, features []float32) []float32
 		averaged[j] /= float32(numModels)
 	}
 
-	return averaged
+	return averaged, nil
 }
 
 // Function to get individual fighter stats from our firestore database
@@ -494,6 +551,9 @@ func calculateFeatures(red, blue *Fighter, meta *ScalerMetadata) []float32 {
 }
 
 func main() {
+	// Structured JSON logging (plays well with Cloud Run log ingestion).
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
+
 	// Initialize router and context
 	router := gin.Default()
 
@@ -526,11 +586,11 @@ func main() {
 
 	// Concurrently initialize firestore, load models from GCS, and load scaler from GCS
 	dbChan := make(chan *firestore.Client, 1)
-	onnxChan := make(chan []ModelSession, 1)
+	onnxChan := make(chan []*ModelSession, 1)
 	scalerChan := make(chan *ScalerMetadata, 1)
 
 	var db *firestore.Client
-	var onnxSessions []ModelSession
+	var onnxSessions []*ModelSession
 	var scalerMeta *ScalerMetadata
 
 	go func() {
@@ -550,11 +610,15 @@ func main() {
 	scalerMeta = <-scalerChan
 
 	router.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "Welcome to the UFC Predictions API"})
+		c.JSON(http.StatusOK, gin.H{"message": "Welcome to the UFC Predictions API"})
 	})
 
-	// Endpoint for /predict - returns prediction for a given fight
-	// Endpoint for /predict
+	// Lightweight liveness probe for Cloud Run / uptime checks.
+	router.GET("/healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	// Endpoint for /predict - returns an ensemble prediction for a matchup
 	router.POST("/predict", func(c *gin.Context) {
 		// Struct binding red and blue fighters from context
 		var req struct {
@@ -562,7 +626,7 @@ func main() {
 			BlueFighter string `json:"blue_fighter" binding:"required"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
@@ -570,13 +634,11 @@ func main() {
 
 		// Check if prediction is cached in Redis
 		cacheKey := fmt.Sprintf("%s:%s", req.RedFighter, req.BlueFighter)
-		cached, err := rdb.Get(ctx, cacheKey).Result()
-		if err == nil {
-			// Print message verifying found in redis
-			fmt.Println("Found prediction in cache")
+		if cached, err := rdb.Get(ctx, cacheKey).Result(); err == nil {
 			var result PredictionResult
 			if json.Unmarshal([]byte(cached), &result) == nil {
-				c.JSON(200, result)
+				slog.Debug("prediction cache hit", "key", cacheKey)
+				c.JSON(http.StatusOK, result)
 				return
 			}
 		}
@@ -591,7 +653,6 @@ func main() {
 
 		// Collect results
 		var red, blue *Fighter
-
 		for received := 0; received < 2; {
 			select {
 			case f := <-redChan:
@@ -601,7 +662,7 @@ func main() {
 				blue = b
 				received++
 			case err := <-errChan:
-				c.JSON(404, gin.H{"error": err.Error()})
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 				return
 			}
 		}
@@ -609,8 +670,13 @@ func main() {
 		// Engineer and scale features using pre-loaded scaler from GCS
 		features := calculateFeatures(red, blue, scalerMeta)
 
-		// Run ensemble inference: all models concurrently, then average softmax
-		ensembleProbs := runEnsembleInference(onnxSessions, features)
+		// Run ensemble inference: all models concurrently, then average
+		ensembleProbs, err := runEnsembleInference(onnxSessions, features)
+		if err != nil {
+			slog.Error("inference failed", "key", cacheKey, "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "prediction failed"})
+			return
+		}
 
 		result := PredictionResult{
 			RedKO: ensembleProbs[0], RedSub: ensembleProbs[1],
@@ -619,13 +685,12 @@ func main() {
 			BlueDec: ensembleProbs[5],
 		}
 
-		// Store prediciton result in redis cache
+		// Store prediction result in Redis cache
 		if jsonBytes, err := json.Marshal(result); err == nil {
 			rdb.Set(ctx, cacheKey, jsonBytes, 6*time.Hour)
 		}
 
-		c.JSON(200, result)
-
+		c.JSON(http.StatusOK, result)
 	})
 
 	// Endpoint for /upcoming - returns all upcoming fight predictions
@@ -635,7 +700,7 @@ func main() {
 		// Query all documents from the "upcoming" collection
 		docs, err := db.Collection("upcoming").Documents(ctx).GetAll()
 		if err != nil {
-			c.JSON(500, gin.H{"error": fmt.Sprintf("Failed to fetch upcoming fights: %v", err)})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to fetch upcoming fights: %v", err)})
 			return
 		}
 
@@ -646,7 +711,7 @@ func main() {
 			upcomingFights = append(upcomingFights, data)
 		}
 
-		c.JSON(200, gin.H{"fights": upcomingFights})
+		c.JSON(http.StatusOK, gin.H{"fights": upcomingFights})
 	})
 
 	// Endpoint for /previous - returns all previous fight predictions with results
@@ -656,7 +721,7 @@ func main() {
 		// Query all documents from the "previous" collection
 		docs, err := db.Collection("previous").Documents(ctx).GetAll()
 		if err != nil {
-			c.JSON(500, gin.H{"error": fmt.Sprintf("Failed to fetch previous fights: %v", err)})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to fetch previous fights: %v", err)})
 			return
 		}
 
@@ -667,12 +732,44 @@ func main() {
 			previousFights = append(previousFights, data)
 		}
 
-		c.JSON(200, gin.H{"fights": previousFights})
+		c.JSON(http.StatusOK, gin.H{"fights": previousFights})
 	})
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080" // Default for local
 	}
-	router.Run(":" + port)
+
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: router,
+	}
+
+	// Serve in a goroutine so the main goroutine can wait for a shutdown signal.
+	go func() {
+		slog.Info("server listening", "port", port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			panic(fmt.Sprintf("server error: %v", err))
+		}
+	}()
+
+	// Block until an interrupt/termination signal arrives (Cloud Run sends SIGTERM).
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+	slog.Info("shutting down server")
+
+	// Give in-flight requests up to 10s to finish, then release resources.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("forced shutdown", "error", err)
+	}
+	if err := db.Close(); err != nil {
+		slog.Error("closing firestore client", "error", err)
+	}
+	if err := rdb.Close(); err != nil {
+		slog.Error("closing redis client", "error", err)
+	}
+	slog.Info("server stopped")
 }
