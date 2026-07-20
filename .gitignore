@@ -185,6 +185,7 @@ fighter_pages/
 scripts-old/
 services-old/
 *.onnx
+*.onnx.data
 *.db
 *.csv
 

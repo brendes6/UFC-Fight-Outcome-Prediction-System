@@ -13,7 +13,6 @@ import data_cleaning
 import db
 from sqlalchemy import text
 from augment import FINAL_FEATURES, swap_augment
-import json
 from datetime import date
 
 # Custom dataset for loading UFC data
@@ -116,7 +115,7 @@ def clean_and_scale(data):
 
     y = clean_df["categorical_outcome"].values
 
-    # ── Temporal split: train on older fights, validate on recent ones ──
+    # Temporal split: train on older fights, validate on recent ones
     # Parse dates and sort chronologically for a proper temporal split
     dates = pd.to_datetime(clean_df["Date"], format="mixed")
     sorted_idx = dates.argsort()
@@ -128,16 +127,18 @@ def clean_and_scale(data):
     X_train_raw, X_val_raw = X_sorted[:split_idx], X_sorted[split_idx:]
     y_train_raw, y_val_raw = y_sorted[:split_idx], y_sorted[split_idx:]
 
-    # ── Red/blue swap augmentation on training data only ──
+    # Red/blue swap augmentation on training data only
     # Doubles training data and removes corner bias
     X_train_aug, y_train_aug = swap_augment(X_train_raw, y_train_raw)
 
-    # ── Fit scaler on augmented training data, apply to both sets ──
+    # Fit scaler on augmented training data, apply to both sets
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train_aug)
     X_val_scaled = scaler.transform(X_val_raw)
 
-    return X_train_scaled, y_train_aug, X_val_scaled, y_val_raw, scaler
+    # X_val_raw (unscaled) is returned so the registered pyfunc model — which
+    # scales internally — can be parity-checked against the in-process ensemble.
+    return X_train_scaled, y_train_aug, X_val_scaled, y_val_raw, X_val_raw, scaler
         
 
 def mixup_data(x, y, alpha=0.2):
@@ -157,7 +158,7 @@ def mixup_data(x, y, alpha=0.2):
 
 
 def mixup_criterion(criterion, pred, y_a, y_b, lam):
-    """Compute loss for mixup — weighted combination of losses against both labels."""
+    """Compute loss for mixup - weighted combination of losses against both labels."""
     return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
 
 
@@ -271,7 +272,7 @@ def train_xgboost(X_train, y_train, X_val, y_val):
     """Train and return an XGBoost classifier.
     
     XGBoost learns step-function decision boundaries that complement 
-    the NN's smooth surfaces — giving real ensemble diversity.
+    the NN's smooth surfaces, giving real ensemble diversity.
     """
     xgb_model = xgb.XGBClassifier(
         n_estimators=400,
@@ -322,7 +323,8 @@ def export_nn_to_onnx(model, path):
         do_constant_folding=True,
         input_names=['input'],
         output_names=['output'],
-        dynamic_axes={'input': {0: 'batch_size'}, 'output': {0: 'batch_size'}}
+        dynamic_axes={'input': {0: 'batch_size'}, 'output': {0: 'batch_size'}},
+        dynamo=False,
     )
 
     print(f"NN model successfully converted to {path}")
@@ -404,18 +406,25 @@ def evaluate_ensemble(nn_model, xgb_model, X_val, y_val):
     print(f"  XGB alone — winner: {np.mean(xgb_winners == actual_winner):.4f}, outcome: {np.mean(xgb_preds == y_val):.4f}")
     
     return {
-        "winner": winner_correct / total,
-        "outcome": outcome_correct / total
+        "winner": float(winner_correct / total),
+        "outcome": float(outcome_correct / total)
     }
 
 
-def get_production_accuracy_from_db():
-    """Fetch current production model's winner accuracy from the model_version row."""
-    with db.get_engine().connect() as conn:
-        row = conn.execute(
-            text("SELECT winner_accuracy FROM model_version WHERE id = 'current'")
-        ).fetchone()
-    return row[0] if row else 0.0
+def ensemble_probs(nn_model, xgb_model, X_scaled):
+    """Averaged NN(softmax) + XGBoost probabilities for already-scaled rows.
+
+    Mirrors production inference and is used to parity-check the registered
+    pyfunc model against the in-process models.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    nn_model.eval()
+    with torch.no_grad():
+        logits = nn_model(torch.FloatTensor(np.asarray(X_scaled)).to(device))
+        nn_p = F.softmax(logits, dim=1).cpu().numpy()
+    xgb_p = xgb_model.predict_proba(np.asarray(X_scaled))
+    return (nn_p + xgb_p) / 2.0
+
 
 def get_current_version():
     """Fetch the current model version number from the model_version row."""
@@ -440,42 +449,6 @@ def update_production_accuracy_in_db(winner_accuracy, version):
                       trained_at = EXCLUDED.trained_at
                 """
             ),
-            {"acc": winner_accuracy, "ver": version, "trained_at": str(date.today())},
+            {"acc": float(winner_accuracy), "ver": int(version), "trained_at": str(date.today())},
         )
 
-
-def promote_to_production(nn_model, xgb_model, scaler_params, accuracy):
-    """Export NN + XGBoost models and scaler to GCS and update the model_version row."""
-    from google.cloud import storage
-    
-    client = storage.Client()
-    bucket = client.bucket("ufc-proj-models")
-    
-    # Export and upload NN model
-    nn_path = "nn_model.onnx"
-    export_nn_to_onnx(nn_model, nn_path)
-    bucket.blob(f"production/{nn_path}").upload_from_filename(nn_path)
-    
-    # Export and upload XGBoost model
-    xgb_path = "xgb_model.onnx"
-    export_xgb_to_onnx(xgb_model, xgb_path)
-    bucket.blob(f"production/{xgb_path}").upload_from_filename(xgb_path)
-    
-    scaler_dict = scaler_to_metadata(scaler_params)
-    bucket.blob("production/scaler_params.json").upload_from_string(
-        json.dumps(scaler_dict)
-    )
-    
-    # Update version.json so Go backend knows to reload
-    version = get_current_version() + 1
-    version_data = {
-        "version": version,
-        "winner_accuracy": accuracy["winner"],
-        "trained_at": str(date.today())
-    }
-    bucket.blob("production/version.json").upload_from_string(
-        json.dumps(version_data)
-    )
-    
-    # Update accuracy + version in the model_version table
-    update_production_accuracy_in_db(accuracy["winner"], version)

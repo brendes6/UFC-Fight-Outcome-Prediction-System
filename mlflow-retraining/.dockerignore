@@ -5,4 +5,5 @@ __pycache__/
 mlruns/
 mlflow.db
 *.onnx
+*.onnx.data
 scaler_params.json
