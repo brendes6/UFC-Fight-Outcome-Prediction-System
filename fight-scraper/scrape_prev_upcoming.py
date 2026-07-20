@@ -5,7 +5,7 @@ from dateutil.parser import parse
 import requests
 import data_cleaning
 import os
-from google.cloud import firestore 
+import db
 from datetime import date
 is_upcoming = False
 is_most_recent = True
@@ -43,13 +43,13 @@ def scrape_previous_fights():
                 break
     
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
-    ufc_master_relative_path = os.path.join(current_script_dir, "ufc-master.csv")
-    temp_df = pd.read_csv(ufc_master_relative_path)
-    time.sleep(5)
 
-    column_list = temp_df.columns
+    # Column template comes from the ufc_master table (the schema source of
+    # truth), not a static CSV snapshot.
+    column_list = db.table_columns("ufc_master")
 
     df = pd.DataFrame(columns=column_list)
+    time.sleep(5)
     html = get_text_helper(url, scraper_session)
 
     bs=BeautifulSoup(html, 'html.parser')
@@ -964,27 +964,12 @@ def scrape_previous_fights():
     print("Scraped data from most recent event")
 
 
-    # Push scraped data to FireStore Database
-
-    db = firestore.Client(project="ufc-proj", database="ufcdb")
+    # Push scraped data to Postgres (ufc_master table)
 
     records = df.to_dict(orient="records")
-    for i in range(len(records)):
-        record = records[i]
-        doc_id = str(record.get('FightTag')) 
-        doc_ref = db.collection("ufc-master").document(doc_id)
+    db.upsert_records("ufc_master", "FightTag", records)
+    print(f"Uploaded {len(records)} recent fights to ufc_master table\n\n")
 
-        doc_snapshot = doc_ref.get()
-
-        if doc_snapshot.exists:
-            print(f"Fight {doc_id} already exists.\n")
-        else:
-            print(f"Added NEW fight {doc_id}.\n")
-
-        doc_ref.set(record, merge=True)
-
-    print("Uploaded recent fights to ufc-master table\n\n")
-    
     return df
 
 
@@ -1008,17 +993,10 @@ def update_db(stat_df):
     # Update database with new data
     print("Uploading fighter stats...")
 
-    db = firestore.Client(project="ufc-proj", database="ufcdb")
-
     records = stat_df.to_dict(orient="records")
-    for i in range(len(records)):
-        record = records[i]
-        doc_id = str(record.get('fighter_tag')) 
-        doc_ref = db.collection("fighters").document(doc_id)
-        doc_ref.set(record, merge=True)
-        print(f"Updated stats for {record['fighter_tag']}\n")
+    db.upsert_records("fighters", "fighter_tag", records)
 
-    print("Updated fighters table with stats\n\n")
+    print(f"Updated {len(records)} fighters in the fighters table\n\n")
 
 
 def scrape_upcoming_fights():
@@ -1162,17 +1140,13 @@ def predict_upcoming_fights(upcoming_df, date_key):
 
     df = pd.DataFrame(data)
 
-    # Push predictions to DB
-    db = firestore.Client(project="ufc-proj", database="ufcdb")
-
+    # Push predictions to DB (upcoming JSONB table)
     records = df.to_dict(orient="records")
 
-    for i in range(len(records)):
-        record = records[i]
-        doc_id = str(record.get('fight_id')) 
-        doc_ref = db.collection("upcoming").document(doc_id)
-        doc_ref.set(record, merge=True)
-    
+    for record in records:
+        doc_id = str(record.get('fight_id'))
+        db.upsert_json_doc("upcoming", doc_id, record)
+
     print("Upcoming fight predictions uploaded to database\n\n")
 
 
@@ -1180,14 +1154,8 @@ def update_prev_predictions(event_df):
     # Update previous predictions with actual results
 
     print("Updating previous predictions...")
-    db = firestore.Client(project="ufc-proj", database="ufcdb")
-        
-    upcoming_ref = db.collection("upcoming")
-    previous_ref = db.collection("previous")
-    docs = upcoming_ref.stream()
 
-    for doc in docs:
-        data = doc.to_dict()
+    for doc_id, data in db.read_json_docs("upcoming"):
         fight_id = data.get("fight_id")
 
         if fight_id:
@@ -1198,11 +1166,11 @@ def update_prev_predictions(event_df):
                 actual_result = match.iloc[0]
 
                 data["result"] = int(actual_result["Result"])
-                previous_ref.document(doc.id).set(data)
+                db.upsert_json_doc("previous", doc_id, data)
                 print(f"Moved {fight_id} to previous collection")
 
             # Pop out item from upcoming
-            upcoming_ref.document(doc.id).delete()
+            db.delete_doc("upcoming", doc_id)
             print(f"Deleted {fight_id} from upcoming collection")
 
     print("Previous predictions updated\n\n")

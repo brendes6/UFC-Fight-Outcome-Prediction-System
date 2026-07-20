@@ -192,6 +192,11 @@ services-old/
 scrape_challenge.py
 reclean_stats.py
 
+# One-time Firestore->Postgres importer: kept locally as a safety net, never committed.
+db/migrate_from_firestore.py
+db/requirements.txt
+db/__pycache__/
+
 # MLflow local experiment tracking + generated training artifacts
 mlruns/
 scaler_params.json

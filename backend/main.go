@@ -10,15 +10,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	"cloud.google.com/go/firestore"
 	"cloud.google.com/go/storage"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	ort "github.com/yalue/onnxruntime_go"
 )
@@ -43,37 +42,37 @@ var finalFeatures = []string{
 // Fighter struct - stores all basic fighter stats
 // used for eventual input tensor formatting
 type Fighter struct {
-	// firestore tag for variable mapping from firestore NoSQL db
-	Wins              int     `firestore:"Wins"`
-	WinsByKO          int     `firestore:"WinsByKO"`
-	WinsBySubmission  int     `firestore:"WinsBySubmission"`
-	WinsByDecision    int     `firestore:"WinsByDecision"`
-	Losses            int     `firestore:"Losses"`
-	HeightCms         float64 `firestore:"HeightCms"`
-	ReachCms          float64 `firestore:"ReachCms"`
-	AvgSigStrLanded   float64 `firestore:"AvgSigStrLanded"`
-	AvgTDLanded       float64 `firestore:"AvgTDLanded"`
-	AvgSigStrPct      float64 `firestore:"AvgSigStrPct"`
-	AvgSubAtt         float64 `firestore:"AvgSubAtt"`
-	Stance            string  `firestore:"Stance"`
-	WeightLbs         int     `firestore:"WeightLbs"`
-	Age               int     `firestore:"Age"`
-	KoPct             float64 `firestore:"KoPct"`
-	SubPct            float64 `firestore:"SubPct"`
-	DecPct            float64 `firestore:"DecPct"`
-	AvgRounds         float64 `firestore:"AvgRounds"`
-	Elo               float64 `firestore:"Elo"`
-	OpponentElo       float64 `firestore:"OpponentElo"`
-	SigStrAbsorbed    float64 `firestore:"SigStrAbsorbed"`
-	CurrentWinStreak  int     `firestore:"CurrentWinStreak"`
-	FinishL5          float64 `firestore:"FinishL5"`
-	LossesByKO        int     `firestore:"LossesByKO"`
-	LossesBySub       int     `firestore:"LossesBySub"`
-	LossesByDec       int     `firestore:"LossesByDec"`
-	WinPct            float64 `firestore:"WinPct"`
-	TotalRoundsFought int     `firestore:"TotalRoundsFought"`
-	WeightClass       string  `firestore:"WeightClass"`
-	Gender            string  `firestore:"Gender"`
+	// db tags map struct fields to the fighters table columns
+	Wins              int     `db:"Wins"`
+	WinsByKO          int     `db:"WinsByKO"`
+	WinsBySubmission  int     `db:"WinsBySubmission"`
+	WinsByDecision    int     `db:"WinsByDecision"`
+	Losses            int     `db:"Losses"`
+	HeightCms         float64 `db:"HeightCms"`
+	ReachCms          float64 `db:"ReachCms"`
+	AvgSigStrLanded   float64 `db:"AvgSigStrLanded"`
+	AvgTDLanded       float64 `db:"AvgTDLanded"`
+	AvgSigStrPct      float64 `db:"AvgSigStrPct"`
+	AvgSubAtt         float64 `db:"AvgSubAtt"`
+	Stance            string  `db:"Stance"`
+	WeightLbs         int     `db:"WeightLbs"`
+	Age               int     `db:"Age"`
+	KoPct             float64 `db:"KoPct"`
+	SubPct            float64 `db:"SubPct"`
+	DecPct            float64 `db:"DecPct"`
+	AvgRounds         float64 `db:"AvgRounds"`
+	Elo               float64 `db:"Elo"`
+	OpponentElo       float64 `db:"OpponentElo"`
+	SigStrAbsorbed    float64 `db:"SigStrAbsorbed"`
+	CurrentWinStreak  int     `db:"CurrentWinStreak"`
+	FinishL5          float64 `db:"FinishL5"`
+	LossesByKO        int     `db:"LossesByKO"`
+	LossesBySub       int     `db:"LossesBySub"`
+	LossesByDec       int     `db:"LossesByDec"`
+	WinPct            float64 `db:"WinPct"`
+	TotalRoundsFought int     `db:"TotalRoundsFought"`
+	WeightClass       string  `db:"WeightClass"`
+	Gender            string  `db:"Gender"`
 }
 
 // Struct storing metadata of means/std's for
@@ -249,18 +248,6 @@ func downloadModelsFromGCS(ctx context.Context) {
 	wg.Wait()
 }
 
-// Initializes our firestore client for database reads
-func initFirestore(ctx context.Context) *firestore.Client {
-	projectID := "ufc-proj"
-	databaseID := "ufcdb"
-
-	client, err := firestore.NewClientWithDatabase(ctx, projectID, databaseID)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create Firestore client: %v", err))
-	}
-	return client
-}
-
 // ModelSession struct storing information for our ONNX session
 type ModelSession struct {
 	// mutex serializes access to the reusable input/output tensors below so that
@@ -411,7 +398,6 @@ func runInference(ms *ModelSession, features []float32) ([]float32, error) {
 
 // Run all models concurrently and average their probabilities.
 // Heterogeneous ensemble: NN (smooth boundaries) + XGBoost (step boundaries)
-// provides real diversity — different model families make different errors.
 func runEnsembleInference(sessions []*ModelSession, features []float32) ([]float32, error) {
 	numClasses := 6
 	results := make([][]float32, numModels)
@@ -451,25 +437,6 @@ func runEnsembleInference(sessions []*ModelSession, features []float32) ([]float
 	}
 
 	return averaged, nil
-}
-
-// Function to get individual fighter stats from our firestore database
-// Using channels to support concurrent calls of database
-func getFighterStats(ctx context.Context, client *firestore.Client, name string, resChan chan<- *Fighter, errChan chan<- error) {
-	docID := strings.TrimSpace(name)
-
-	dsnap, err := client.Collection("fighters").Doc(docID).Get(ctx)
-	if err != nil {
-		errChan <- fmt.Errorf("fighter %s not found", name)
-		return
-	}
-
-	var fighter Fighter
-	if err := dsnap.DataTo(&fighter); err != nil {
-		errChan <- fmt.Errorf("error parsing data for %s: %v", name, err)
-		return
-	}
-	resChan <- &fighter
 }
 
 // Function to calculate features given our fighter data
@@ -584,17 +551,17 @@ func main() {
 		panic(fmt.Sprintf("Failed to connect to Redis: %v", err))
 	}
 
-	// Concurrently initialize firestore, load models from GCS, and load scaler from GCS
-	dbChan := make(chan *firestore.Client, 1)
+	// Concurrently initialize Postgres, load models from GCS, and load scaler from GCS
+	dbChan := make(chan *pgxpool.Pool, 1)
 	onnxChan := make(chan []*ModelSession, 1)
 	scalerChan := make(chan *ScalerMetadata, 1)
 
-	var db *firestore.Client
+	var db *pgxpool.Pool
 	var onnxSessions []*ModelSession
 	var scalerMeta *ScalerMetadata
 
 	go func() {
-		dbChan <- initFirestore(ctx)
+		dbChan <- initPostgres(ctx)
 	}()
 
 	go func() {
@@ -643,7 +610,7 @@ func main() {
 			}
 		}
 
-		// Concurrently fetch both fighter stats from Firestore
+		// Concurrently fetch both fighter stats from Postgres
 		redChan := make(chan *Fighter, 1)
 		blueChan := make(chan *Fighter, 1)
 		errChan := make(chan error, 2)
@@ -697,18 +664,10 @@ func main() {
 	router.GET("/upcoming", func(c *gin.Context) {
 		ctx := c.Request.Context()
 
-		// Query all documents from the "upcoming" collection
-		docs, err := db.Collection("upcoming").Documents(ctx).GetAll()
+		upcomingFights, err := queryFightCards(ctx, db, "upcoming")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to fetch upcoming fights: %v", err)})
 			return
-		}
-
-		// Convert documents to slice of UpcomingFight
-		var upcomingFights []map[string]interface{}
-		for _, doc := range docs {
-			data := doc.Data()
-			upcomingFights = append(upcomingFights, data)
 		}
 
 		c.JSON(http.StatusOK, gin.H{"fights": upcomingFights})
@@ -718,18 +677,10 @@ func main() {
 	router.GET("/previous", func(c *gin.Context) {
 		ctx := c.Request.Context()
 
-		// Query all documents from the "previous" collection
-		docs, err := db.Collection("previous").Documents(ctx).GetAll()
+		previousFights, err := queryFightCards(ctx, db, "previous")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to fetch previous fights: %v", err)})
 			return
-		}
-
-		// Convert documents to slice
-		var previousFights []map[string]interface{}
-		for _, doc := range docs {
-			data := doc.Data()
-			previousFights = append(previousFights, data)
 		}
 
 		c.JSON(http.StatusOK, gin.H{"fights": previousFights})
@@ -765,9 +716,7 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("forced shutdown", "error", err)
 	}
-	if err := db.Close(); err != nil {
-		slog.Error("closing firestore client", "error", err)
-	}
+	db.Close()
 	if err := rdb.Close(); err != nil {
 		slog.Error("closing redis client", "error", err)
 	}

@@ -1,7 +1,7 @@
 /**
  * Fighter-tag normalization.
  *
- * The backend looks fighters up in Firestore by a normalized document ID
+ * The backend looks fighters up in PostgreSQL by a normalized primary key
  * ("fighter_tag"). That ID is produced by the data pipeline in
  * `fight-scraper/data_cleaning.py` as:
  *

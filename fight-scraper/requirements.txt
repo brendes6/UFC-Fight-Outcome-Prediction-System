@@ -4,6 +4,5 @@ bs4
 requests
 python-dotenv
 python-dateutil
-google-cloud-firestore
-
-
+sqlalchemy
+psycopg2-binary

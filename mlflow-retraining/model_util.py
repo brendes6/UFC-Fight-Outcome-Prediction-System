@@ -8,9 +8,10 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from google.cloud import firestore
 import xgboost as xgb
 import data_cleaning
+import db
+from sqlalchemy import text
 from augment import FINAL_FEATURES, swap_augment
 import json
 from datetime import date
@@ -96,18 +97,8 @@ def clean_up_data(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def load_data() -> pd.DataFrame:
-    """Load in data from firestore into a pd dataframe"""
-    db = firestore.Client(project="ufc-proj", database="ufcdb")
-        
-    master_ref = db.collection("ufc-master")
-    docs = master_ref.stream()
-    
-    # Converting Firestore docs to a DataFrame
-    data_list = list(map(lambda x: x.to_dict(), docs))
-
-    df = pd.DataFrame(data_list)
-
-    return df
+    """Load the full historical fight set from the ufc_master table."""
+    return db.read_table("ufc_master")
 
 def clean_and_scale(data):
     """Clean, augment, and scale data with temporal split and corner debiasing."""
@@ -419,34 +410,42 @@ def evaluate_ensemble(nn_model, xgb_model, X_val, y_val):
 
 
 def get_production_accuracy_from_db():
-    """Fetch current production model's winner accuracy from Firestore."""
-    db = firestore.Client(project="ufc-proj", database="ufcdb")
-    doc = db.collection("metadata").document("model_version").get()
-    if doc.exists:
-        return doc.to_dict().get("winner_accuracy", 0.0)
-    return 0.0
+    """Fetch current production model's winner accuracy from the model_version row."""
+    with db.get_engine().connect() as conn:
+        row = conn.execute(
+            text("SELECT winner_accuracy FROM model_version WHERE id = 'current'")
+        ).fetchone()
+    return row[0] if row else 0.0
 
 def get_current_version():
-    """Fetch the current model version number from Firestore."""
-    db = firestore.Client(project="ufc-proj", database="ufcdb")
-    doc = db.collection("metadata").document("model_version").get()
-    if doc.exists:
-        return doc.to_dict().get("version", 0)
-    return 0
+    """Fetch the current model version number from the model_version row."""
+    with db.get_engine().connect() as conn:
+        row = conn.execute(
+            text("SELECT version FROM model_version WHERE id = 'current'")
+        ).fetchone()
+    return row[0] if row else 0
 
 
 def update_production_accuracy_in_db(winner_accuracy, version):
-    """Update the production model metadata in Firestore."""
-    db = firestore.Client(project="ufc-proj", database="ufcdb")
-    db.collection("metadata").document("model_version").set({
-        "winner_accuracy": winner_accuracy,
-        "version": version,
-        "trained_at": str(date.today())
-    })
+    """Upsert the single production model_version row."""
+    with db.get_engine().begin() as conn:
+        conn.execute(
+            text(
+                """
+                INSERT INTO model_version (id, winner_accuracy, version, trained_at)
+                VALUES ('current', :acc, :ver, :trained_at)
+                ON CONFLICT (id) DO UPDATE
+                  SET winner_accuracy = EXCLUDED.winner_accuracy,
+                      version = EXCLUDED.version,
+                      trained_at = EXCLUDED.trained_at
+                """
+            ),
+            {"acc": winner_accuracy, "ver": version, "trained_at": str(date.today())},
+        )
 
 
 def promote_to_production(nn_model, xgb_model, scaler_params, accuracy):
-    """Export NN + XGBoost models and scaler to GCS and update Firestore metadata."""
+    """Export NN + XGBoost models and scaler to GCS and update the model_version row."""
     from google.cloud import storage
     
     client = storage.Client()
@@ -478,5 +477,5 @@ def promote_to_production(nn_model, xgb_model, scaler_params, accuracy):
         json.dumps(version_data)
     )
     
-    # Update accuracy + version in Firestore
+    # Update accuracy + version in the model_version table
     update_production_accuracy_in_db(accuracy["winner"], version)

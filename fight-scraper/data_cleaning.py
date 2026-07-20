@@ -1,8 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
-from google.cloud import firestore
-
+import db
 
 
 def get_elos_and_streaks(df):
@@ -27,18 +26,7 @@ def get_elos_and_streaks(df):
     fighter_win_streak = {}
     fighter_lose_streak = {}
 
-    db = firestore.Client(project="ufc-proj", database="ufcdb")
-
-    collection_ref = db.collection("ufc-master")
-    docs = collection_ref.stream()
-
-    data = []
-    for doc in docs:
-        doc_dict = doc.to_dict()
-        data.append(doc_dict)
-
-
-    master_df = pd.DataFrame(data)
+    master_df = db.read_table("ufc_master")
 
     # Sort chronologically (oldest first) for correct sequential processing
     master_df["_parsed_date"] = pd.to_datetime(master_df["Date"], format="mixed")

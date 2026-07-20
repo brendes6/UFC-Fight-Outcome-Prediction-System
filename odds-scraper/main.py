@@ -1,5 +1,5 @@
 import requests
-from google.cloud import firestore
+import db
 import os
 from dotenv import load_dotenv
 import json
@@ -85,12 +85,7 @@ def update_odds():
 
     print("Adding odds to database...")
 
-    db = firestore.Client(project="ufc-proj", database="ufcdb")
-        
-    upcoming_ref = db.collection("upcoming")
-    docs = upcoming_ref.stream()
-
-    for doc in docs:
+    for doc_id, doc in db.read_json_docs("upcoming"):
         key1 = doc.get("red_tag") + "_" + doc.get("blue_tag")
         key2 = doc.get("blue_tag") + "_" + doc.get("red_tag")
 
@@ -127,7 +122,7 @@ def update_odds():
                 best_bet = "Blue"
                 best_bet_ev = blue_ev
 
-        doc.reference.update({
+        doc.update({
             "red_prob": red_prob,
             "blue_prob": blue_prob,
             "red_ev": red_ev,
@@ -135,6 +130,7 @@ def update_odds():
             "best_bet": best_bet,
             "best_bet_ev": best_bet_ev,
         })
+        db.upsert_json_doc("upcoming", doc_id, doc)
 
     print("Added odds to database.")
 

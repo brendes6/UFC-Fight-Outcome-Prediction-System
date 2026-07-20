@@ -2,7 +2,8 @@ pandas
 numpy
 mlflow
 scikit-learn
-google-cloud-firestore
+sqlalchemy
+psycopg2-binary
 google-cloud-storage
 xgboost
 onnxmltools
