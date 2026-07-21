@@ -201,3 +201,6 @@ db/__pycache__/
 # MLflow local experiment tracking + generated training artifacts
 mlruns/
 scaler_params.json
+
+# Load-test scratch dir (natively-run backend downloads models here)
+loadtest/.run/

@@ -326,7 +326,15 @@ func initAllModels(ctx context.Context) []*ModelSession {
 	// Download latest models from GCS blob storage
 	downloadModelsFromGCS(ctx)
 
-	ort.SetSharedLibraryPath("onnxruntime.so")
+	// Path to the ONNX Runtime shared library. Defaults to the Linux .so
+	// shipped in the container/prod image; override with ONNXRUNTIME_LIB_PATH
+	// for local runs (e.g. a macOS libonnxruntime.dylib) so the service can be
+	// exercised outside the container.
+	libPath := os.Getenv("ONNXRUNTIME_LIB_PATH")
+	if libPath == "" {
+		libPath = "onnxruntime.so"
+	}
+	ort.SetSharedLibraryPath(libPath)
 	if err := ort.InitializeEnvironment(); err != nil {
 		panic(fmt.Sprintf("Failed to initialize ONNX runtime: %v", err))
 	}
