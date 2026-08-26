@@ -11,11 +11,10 @@
 ![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB)
 ![Google Cloud](https://img.shields.io/badge/Google%20Cloud%20Run-4285F4?logo=googlecloud&logoColor=white)
 
-A full-stack ML platform that predicts UFC fight outcomes — winner, win probability, and
-most likely finish method — from an automated data pipeline, a heterogeneous model ensemble,
-and a low-latency Go serving layer. It also runs a full MLOps retraining loop (experiment
-tracking + accuracy-gated promotion) and ingests live bookmaker odds to surface fights where
-the model disagrees most with the market.
+This project is a full-stack ML platform that predicts UFC fight outcomes (winner, finish method, probabilities)
+from an automated data pipeline, an ensemble of neural network and XGBoost models, and a low-latency Go serving layer.
+It also runs a full MLOps retraining loop to track experiments/promotion and ingests live odds to find
+fights where the platform and models disagree with the market.
 
 **Live demo:** https://mma-predictor.vercel.app/
 
@@ -29,7 +28,7 @@ flowchart TB
     FE -->|"POST /predict<br/>GET /upcoming, /previous"| API["Go + Gin API<br/>(Cloud Run)"]
 
     API <-->|"cache matchups (6h TTL)"| Redis[("Redis")]
-    API -->|"fighter stats,<br/>upcoming / previous"| FS[("Firestore")]
+    API -->|"fighter stats,<br/>upcoming / previous"| PG[("PostgreSQL")]
     API -->|"load NN + XGBoost<br/>+ scaler on startup"| GCS[("GCS<br/>model registry")]
     API --> ENS{{"NN + XGBoost ensemble"}}
 
@@ -39,9 +38,9 @@ flowchart TB
         Retrain["mlflow-retraining<br/>(weekly)"]
     end
 
-    UFCStats[("ufcstats.com")] --> Scraper --> FS
-    OddsAPI[("The Odds API")] --> Odds --> FS
-    FS -->|"training data"| Retrain
+    UFCStats[("ufcstats.com")] --> Scraper --> PG
+    OddsAPI[("The Odds API")] --> Odds --> PG
+    PG -->|"training data"| Retrain
     Retrain -->|"experiment tracking"| MLflow[("MLflow")]
     Retrain -->|"promote if accuracy improves"| GCS
 ```
@@ -53,7 +52,7 @@ flowchart TB
 | Serving    | Go, Gin, ONNX Runtime, Redis |
 | ML         | PyTorch, XGBoost, scikit-learn, ONNX |
 | MLOps      | MLflow, Google Cloud Storage (model registry) |
-| Data       | BeautifulSoup, Firestore, The Odds API |
+| Data       | PostgreSQL (pgx), BeautifulSoup, The Odds API |
 | Frontend   | React, MUI, Vite (deployed on Vercel) |
 | Infra      | Docker, Google Cloud Run, Google Cloud Storage |
 
@@ -61,7 +60,7 @@ flowchart TB
 
 1. The frontend sends a red/blue fighter matchup to `POST /predict`.
 2. The API checks **Redis** for a cached result (matchups cached with a 6-hour TTL).
-3. On a miss, it fetches both fighters' stats from **Firestore** concurrently (goroutines).
+3. On a miss, it fetches both fighters' stats from **PostgreSQL** concurrently (goroutines).
 4. It engineers **56 features** (differentials, Elo, momentum/finish streaks, rates, etc.) and
    scales them with the production `StandardScaler` parameters loaded from GCS.
 5. The **NN and XGBoost models run concurrently** and their class probabilities are averaged.
@@ -69,7 +68,7 @@ flowchart TB
    is cached and returned.
 
 Warm responses are served in roughly **30 ms** on a Redis cache hit; a full cold path
-(Firestore reads + feature engineering + ensemble inference) is on the order of **100 ms**.
+(PostgreSQL reads + feature engineering + ensemble inference) is on the order of **100 ms**.
 
 ## Machine learning
 
@@ -88,7 +87,7 @@ Warm responses are served in roughly **30 ms** on a Redis cache hit; a full cold
 ## Data & MLOps pipeline
 
 - **Scraping.** A scheduled Cloud Run job scrapes fighter statistics and fight results from
-  ufcstats.com, cleans them, engineers features, and writes them to Firestore. It also records
+  ufcstats.com, cleans them, engineers features, and writes them to PostgreSQL. It also records
   predictions for upcoming cards and scores past predictions for live accuracy tracking.
 - **Odds & edge.** A second job pulls live bookmaker lines from The Odds API, removes the vig to
   get market-implied win probabilities, and flags fights where the model's win probability is
@@ -105,8 +104,8 @@ Warm responses are served in roughly **30 ms** on a Redis cache hit; a full cold
 ## Repository structure
 
 ```
-backend/            Go + Gin prediction API — ONNX inference, Firestore reads, Redis cache
-fight-scraper/      BeautifulSoup pipeline: scrape -> clean -> feature-engineer -> Firestore
+backend/            Go + Gin prediction API — ONNX inference, PostgreSQL reads, Redis cache
+fight-scraper/      BeautifulSoup pipeline: scrape -> clean -> feature-engineer -> PostgreSQL
 odds-scraper/       Bookmaker odds ingestion + model-edge computation
 mlflow-retraining/  PyTorch NN + XGBoost training, MLflow tracking, accuracy-gated promotion
 frontend/           React + MUI app (Vercel)
@@ -116,20 +115,37 @@ frontend/           React + MUI app (Vercel)
 
 - **Go + ONNX for serving.** Models are trained in Python and exported to ONNX, then served from a
   compiled Go binary. This keeps inference fast and decouples the serving layer from the training
-  stack; goroutines fan out Firestore reads, GCS model loads, and per-model inference concurrently.
+  stack; goroutines fan out PostgreSQL reads, GCS model loads, and per-model inference concurrently.
 - **Ensemble over a single model.** Combining model families with decorrelated errors was a
   consistent, cheap accuracy win over any single model.
-- **Firestore for reads.** Per-fighter lookups are simple key-value reads with low operational
-  overhead, which suits the current serving pattern.
+- **PostgreSQL as the system of record.** Fighters, fights, and prediction cards are inherently
+  relational, so they live in a normalized Postgres schema — typed columns and primary keys for
+  fighter and fight rows, plus JSONB for the loosely-structured upcoming/previous cards. The Go
+  backend reads through a `pgx` connection pool with Redis as a cache-aside layer in front, and
+  schema changes are versioned as `goose` migrations.
 - **Scaler versioned with the model.** Shipping preprocessing parameters atomically with the model
   removes a common and hard-to-debug source of training/serving skew.
 
 ## Local development
 
-Each service is independently containerized (see each directory's `Dockerfile`). Running the full
-platform requires Google Cloud credentials (Firestore + GCS), a Redis instance, and an
-`ODDS_API_KEY` for the odds job; per-service dependencies live in each service's `requirements.txt`
-(Python) or `go.mod` (Go).
+Each service is independently containerized (see each directory's `Dockerfile`). A
+`docker-compose.yml` brings up local **PostgreSQL** and **Redis**, and the `Makefile` wraps the
+common database tasks:
+
+```
+make db-up       # start Postgres + Redis
+make db-migrate  # apply schema migrations (db/migrations, goose)
+make db-reset    # tear down volumes and rebuild the schema from scratch
+```
+
+After `make db-up && make db-migrate` you have an empty, fully-migrated schema. The scraper and
+odds jobs write through the same `DATABASE_URL`, so running them (or pointing `DATABASE_URL` at a
+populated database) fills the tables; in production they run on a schedule against Cloud SQL.
+
+Services read their connection string from `DATABASE_URL`
+(e.g. `postgres://ufc:ufc@localhost:5432/ufc?sslmode=disable`). The Go backend additionally loads
+models from GCS at startup, and the odds job needs an `ODDS_API_KEY`. Per-service dependencies live
+in each service's `requirements.txt` (Python) or `go.mod` (Go).
 
 ## Testing
 
@@ -141,7 +157,7 @@ Unit tests cover the deterministic core of each service, and a GitHub Actions wo
 - **ML (Python):** red/blue corner-swap augmentation — `pytest mlflow-retraining`
 
 The suite deliberately targets pure logic (no network or database), so it stays fast and
-deterministic; the I/O layers (GCS, Firestore, Redis, scraping) are left to integration testing.
+deterministic; the I/O layers (GCS, PostgreSQL, Redis, scraping) are left to integration testing.
 
 ## Motivation
 

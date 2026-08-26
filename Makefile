@@ -40,13 +40,13 @@ loadtest-fixtures:
 	  | python3 -c "import sys,json; open('loadtest/fighters.json','w').write(json.dumps([l.strip() for l in sys.stdin if l.strip()]))"
 	@echo "Wrote loadtest/fighters.json"
 
-# Run the backend natively against the local stack. Models download from GCS
-# (needs ADC) into loadtest/.run. Override ONNXRUNTIME_LIB_PATH on macOS.
+# Run the backend natively against the local stack.
 loadtest-serve:
 	mkdir -p loadtest/.run
+	cd backend && CGO_ENABLED=1 go build -o ../loadtest/.run/ufc-server .
 	cd loadtest/.run && ONNXRUNTIME_LIB_PATH="$(ONNXRUNTIME_LIB_PATH)" \
 	  DATABASE_URL="$(DATABASE_URL)" REDIS_URL="localhost:6379" PORT="8080" \
-	  go run ../../backend
+	  ./ufc-server
 
 loadtest-cache:
 	cd loadtest && SCENARIO=cache_hit BASE_URL="$(LOADTEST_BASE_URL)" k6 run predict.js
