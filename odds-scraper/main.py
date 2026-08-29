@@ -16,7 +16,7 @@ def price_to_pct_chance(price_val):
 def update_odds():
     # Get upcoming odds from The Odds API
 
-    # 1 - Load all MMA odds
+    # Load all MMA odds
     print("Starting to get odds...")
 
     try:
@@ -31,7 +31,7 @@ def update_odds():
 
     print("Odds Loaded\n")
 
-    # 2 - Create red/blue tags for each fighter
+    # Create red/blue tags for each fighter
 
     print("Creating matchup odds...")
 
@@ -81,7 +81,7 @@ def update_odds():
     print("Matchup odds: ", matchup_odds)
     print("Got matchup odds.\n")
     
-    # 3 - Iterate table entries and add odds
+    # Iterate table entries and add odds
 
     print("Adding odds to database...")
 

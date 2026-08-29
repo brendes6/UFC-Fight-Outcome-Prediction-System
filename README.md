@@ -17,6 +17,7 @@ It also runs a full MLOps retraining loop to track experiments/promotion and ing
 fights where the platform and models disagree with the market.
 
 **Live demo:** https://mma-predictor.vercel.app/
+![UFC App demo](docs/demo.gif)
 
 ---
 
