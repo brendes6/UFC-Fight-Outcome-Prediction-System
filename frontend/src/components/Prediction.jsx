@@ -28,7 +28,7 @@ function Prediction({ pred, fighter1, fighter2 }) {
   const fighter2TotalProb = probs.blue_ko + probs.blue_sub + probs.blue_dec;
 
   return (
-    <Card elevation={0} sx={{ borderRadius: 3, border: 1, borderColor: 'grey.800' }}>
+    <Card elevation={0} sx={{ borderRadius: 1, border: 1, borderColor: 'divider' }}>
       <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
 
@@ -70,7 +70,7 @@ function Prediction({ pred, fighter1, fighter2 }) {
         {valuePicks.length > 0 && valuePicks[0] !== "No value picks available." && (
           <Box sx={{ mt: 3 }}>
             <Divider sx={{ mb: 2 }} />
-            <Typography variant="subtitle1" fontWeight="bold" color="goldenrod" display="flex" alignItems="center" mb={1}>
+            <Typography variant="subtitle1" fontWeight="bold" color="primary.main" display="flex" alignItems="center" mb={1}>
               <EmojiEventsIcon sx={{ mr: 1 }} /> Value Picks
             </Typography>
             {valuePicks.map((pick, i) => (

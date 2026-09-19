@@ -138,7 +138,7 @@ function PreviousSidebar({ onFightSelect }) {
   );
 
   return (
-    <Paper elevation={0} sx={{ p: 1, borderRadius: 3, border: 1, borderColor: 'grey.800', bgcolor: 'background.paper', height: 'fit-content', maxHeight: 'calc(100vh - 120px)', overflow: 'auto' }}>
+    <Paper elevation={0} sx={{ p: 1.25, borderRadius: 1, border: 1, borderColor: 'divider', bgcolor: 'background.paper', height: 'fit-content', maxHeight: 'calc(100vh - 120px)', overflow: 'auto' }}>
       <Box sx={{ mb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
           <HistoryIcon sx={{ color: 'secondary.main', mr: 0.75, fontSize: 18 }} />
@@ -147,7 +147,7 @@ function PreviousSidebar({ onFightSelect }) {
         {!loading && !error && previousFights.length > 0 && (() => {
           const stats = calculateAccuracyStats();
           return (
-            <Box sx={{ p: 0.75, borderRadius: 1.5, bgcolor: 'background.default', border: 1, borderColor: 'grey.800' }}>
+            <Box sx={{ p: 0.75, borderRadius: 1, bgcolor: 'action.selected', border: 1, borderColor: 'divider' }}>
               <Stack spacing={0.5}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>Winner Accuracy:</Typography>
@@ -188,9 +188,8 @@ function PreviousSidebar({ onFightSelect }) {
             return (
               <Card key={index} elevation={0}
                 sx={{
-                  borderRadius: 1.5, border: 1,
-                  borderColor: winnerCorrect ? 'rgba(76,175,80,0.5)' : resultInfo ? 'rgba(244,67,54,0.4)' : 'grey.800',
-                  borderWidth: resultInfo ? 1.5 : 1,
+                  borderRadius: 1, border: 1,
+                  borderColor: winnerCorrect ? 'success.main' : resultInfo ? 'error.main' : 'divider',
                   cursor: 'pointer',
                   '&:hover': { bgcolor: 'action.hover' },
                   transition: 'all 0.2s',
@@ -248,8 +247,7 @@ function PreviousSidebar({ onFightSelect }) {
                           <Typography variant="caption" sx={{ fontSize: '0.5rem', color: 'text.secondary' }}>Result</Typography>
                           <Box sx={{
                             px: 0.5, py: 0.1, borderRadius: 0.5,
-                            bgcolor: resultInfo.winner === 'red' ? 'rgba(0,174,239,0.12)' : 'rgba(144,202,249,0.1)',
-                            border: `1px solid ${resultInfo.winner === 'red' ? 'rgba(0,174,239,0.3)' : 'rgba(144,202,249,0.25)'}`,
+                            bgcolor: 'action.selected', border: 1, borderColor: 'divider',
                           }}>
                             <Typography variant="caption" sx={{ fontSize: '0.5rem', fontWeight: 700, color: resultInfo.winner === 'red' ? 'primary.main' : 'secondary.main' }}>
                               {resultWinnerLastName} {resultInfo.method}
@@ -316,9 +314,9 @@ function PreviousSidebar({ onFightSelect }) {
                             onClick={(e) => { e.stopPropagation(); handleFightSelect(fight); }}
                             sx={{
                               mt: 0.75, p: 0.4, borderRadius: 0.75, textAlign: 'center',
-                              bgcolor: 'rgba(0,174,239,0.08)', border: '1px solid rgba(0,174,239,0.2)',
+                              bgcolor: 'action.selected', border: 1, borderColor: 'divider',
                               cursor: 'pointer',
-                              '&:hover': { bgcolor: 'rgba(0,174,239,0.15)' },
+                              '&:hover': { bgcolor: 'action.hover', borderColor: 'primary.main' },
                               transition: 'all 0.15s',
                             }}
                           >

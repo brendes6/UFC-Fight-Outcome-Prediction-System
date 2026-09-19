@@ -26,7 +26,9 @@ function Home({ onFightSelectRef }) {
 
   useEffect(() => {
     if (onFightSelectRef) {
-      onFightSelectRef(handleFightSelect);
+      // Store the callback itself. Passing it directly makes React treat it as
+      // a state updater and invokes it with the previous state value.
+      onFightSelectRef(() => handleFightSelect);
     }
   }, [onFightSelectRef]);
 
@@ -48,14 +50,16 @@ function Home({ onFightSelectRef }) {
   };
 
   return (
-    <Paper elevation={0} sx={{ p: { xs: 2, sm: 4 }, borderRadius: 4, border: 1, borderColor: 'grey.800', bgcolor: 'background.paper' }}>
-      <Typography variant="h5" component="h1" sx={{ textAlign: 'center', mb: 3 }}>
+    <Paper elevation={0} sx={{ p: { xs: 2, sm: 3 }, borderRadius: 1, border: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
+      <Typography component="p" variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace', letterSpacing: '.08em', textTransform: 'uppercase', mb: .75 }}>
+        Matchup analyzer
+      </Typography>
+      <Typography variant="h5" component="h1" sx={{ mb: .75 }}>
         Predict a Matchup
       </Typography>
-
-
-
-
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: '40ch' }}>
+        Compare two fighters using the current prediction model.
+      </Typography>
       <Box component="form" onSubmit={handleSearch}>
         <Stack spacing={2}>
           <TextField
@@ -79,7 +83,7 @@ function Home({ onFightSelectRef }) {
             variant="contained"
             color="primary"
             size="large"
-            sx={{ fontWeight: 'bold', letterSpacing: 1, py: 1.5, mt: 1 }}
+            sx={{ py: 1.25, mt: 1 }}
             disabled={loading}
           >
             {loading ? <CircularProgress size={26} color="inherit" /> : 'Analyze Fight'}

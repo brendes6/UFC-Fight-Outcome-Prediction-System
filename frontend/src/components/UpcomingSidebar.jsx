@@ -77,13 +77,13 @@ function UpcomingSidebar({ onFightSelect }) {
   const evBetCount = upcomingFights.filter(hasEvData).length;
 
   return (
-    <Paper elevation={0} sx={{ p: 1, borderRadius: 3, border: 1, borderColor: 'grey.800', bgcolor: 'background.paper', height: 'fit-content', maxHeight: 'calc(100vh - 120px)', overflow: 'auto' }}>
+    <Paper elevation={0} sx={{ p: 1.25, borderRadius: 1, border: 1, borderColor: 'divider', bgcolor: 'background.paper', height: 'fit-content', maxHeight: 'calc(100vh - 120px)', overflow: 'auto' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
         <EventIcon sx={{ color: 'primary.main', mr: 0.75, fontSize: 18 }} />
         <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '0.9rem', flex: 1 }}>Upcoming Fights</Typography>
         {!loading && evBetCount > 0 && (
           <Chip icon={<TrendingUpIcon sx={{ fontSize: 12 }} />} label={`${evBetCount} EV`} size="small"
-            sx={{ height: 18, fontSize: '0.55rem', fontWeight: 'bold', bgcolor: 'rgba(255,183,77,0.15)', color: '#ffb74d', border: '1px solid rgba(255,183,77,0.3)', '& .MuiChip-icon': { color: '#ffb74d' } }} />
+            sx={{ height: 18, fontSize: '0.55rem', fontWeight: 'bold', bgcolor: 'action.selected', color: 'primary.main', border: 1, borderColor: 'divider', '& .MuiChip-icon': { color: 'primary.main' } }} />
         )}
       </Box>
 
@@ -108,13 +108,11 @@ function UpcomingSidebar({ onFightSelect }) {
             return (
               <Card key={index} elevation={0}
                 sx={{
-                  borderRadius: 1.5, border: 1,
-                  borderColor: fightHasEv ? 'rgba(255,183,77,0.5)' : 'grey.800',
-                  borderWidth: fightHasEv ? 1.5 : 1,
+                  borderRadius: 1, border: 1,
+                  borderColor: fightHasEv ? 'primary.main' : 'divider',
                   cursor: 'pointer',
-                  '&:hover': { borderColor: fightHasEv ? '#ffb74d' : 'primary.main', bgcolor: 'action.hover' },
-                  transition: 'all 0.2s',
-                  ...(fightHasEv && { boxShadow: '0 0 8px rgba(255,183,77,0.1)' }),
+                  '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
+                  transition: 'border-color 0.15s ease, background-color 0.15s ease',
                 }}
                 onClick={(e) => handleCardClick(e, index)}
               >
@@ -161,10 +159,10 @@ function UpcomingSidebar({ onFightSelect }) {
                         ].map(m => (
                           <Box key={m.label} sx={{
                             px: 0.4, py: 0.05, borderRadius: 0.5,
-                            bgcolor: 'rgba(0,174,239,0.12)', border: '1px solid rgba(0,174,239,0.25)',
+                            bgcolor: 'action.selected', border: 1, borderColor: 'divider',
                             display: 'flex', alignItems: 'center', gap: 0.2,
                           }}>
-                            <Typography variant="caption" sx={{ fontSize: '0.45rem', color: 'rgba(0,174,239,0.7)', fontWeight: 600 }}>{m.label}</Typography>
+                            <Typography variant="caption" sx={{ fontSize: '0.45rem', color: 'text.secondary', fontWeight: 600 }}>{m.label}</Typography>
                             <Typography variant="caption" sx={{ fontSize: '0.5rem', color: 'primary.main', fontWeight: 700 }}>{m.val}</Typography>
                           </Box>
                         ))}
@@ -177,10 +175,10 @@ function UpcomingSidebar({ onFightSelect }) {
                         ].map(m => (
                           <Box key={m.label} sx={{
                             px: 0.4, py: 0.05, borderRadius: 0.5,
-                            bgcolor: 'rgba(144,202,249,0.1)', border: '1px solid rgba(144,202,249,0.2)',
+                            bgcolor: 'action.selected', border: 1, borderColor: 'divider',
                             display: 'flex', alignItems: 'center', gap: 0.2,
                           }}>
-                            <Typography variant="caption" sx={{ fontSize: '0.45rem', color: 'rgba(144,202,249,0.6)', fontWeight: 600 }}>{m.label}</Typography>
+                            <Typography variant="caption" sx={{ fontSize: '0.45rem', color: 'text.secondary', fontWeight: 600 }}>{m.label}</Typography>
                             <Typography variant="caption" sx={{ fontSize: '0.5rem', color: 'secondary.main', fontWeight: 700 }}>{m.val}</Typography>
                           </Box>
                         ))}
@@ -189,7 +187,7 @@ function UpcomingSidebar({ onFightSelect }) {
 
                     {/* Model vs Market compact */}
                     {fightHasOdds && (
-                      <Box sx={{ p: 0.4, borderRadius: 0.75, bgcolor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <Box sx={{ p: 0.4, borderRadius: 0.75, bgcolor: 'action.selected', border: 1, borderColor: 'divider' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Typography variant="caption" sx={{ fontSize: '0.45rem', color: 'text.secondary' }}>Model / Market</Typography>
                         </Box>
@@ -208,13 +206,13 @@ function UpcomingSidebar({ onFightSelect }) {
 
                     {/* EV Badge */}
                     {fightHasEv && (
-                      <Box sx={{ p: 0.4, borderRadius: 0.75, background: 'linear-gradient(135deg, rgba(255,183,77,0.12) 0%, rgba(255,143,0,0.08) 100%)', border: '1px solid rgba(255,183,77,0.25)', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <TrendingUpIcon sx={{ fontSize: 11, color: '#ffb74d' }} />
-                        <Typography variant="caption" noWrap sx={{ fontSize: '0.55rem', fontWeight: 700, color: '#ffb74d', flex: 1 }}>
+                      <Box sx={{ p: 0.4, borderRadius: 0.75, bgcolor: 'action.selected', border: 1, borderColor: 'primary.main', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <TrendingUpIcon sx={{ fontSize: 11, color: 'primary.main' }} />
+                        <Typography variant="caption" noWrap sx={{ fontSize: '0.55rem', fontWeight: 700, color: 'primary.main', flex: 1 }}>
                           {getBestBetName(fight)}
                         </Typography>
                         <Chip label={`+${(fight.best_bet_ev*100).toFixed(1)}% EV`} size="small"
-                          sx={{ height: 15, fontSize: '0.5rem', fontWeight: 'bold', bgcolor: 'rgba(255,183,77,0.2)', color: '#ffb74d', border: '1px solid rgba(255,183,77,0.4)' }} />
+                          sx={{ height: 15, fontSize: '0.5rem', fontWeight: 'bold', bgcolor: 'background.paper', color: 'primary.main', border: 1, borderColor: 'primary.main' }} />
                       </Box>
                     )}
 
@@ -275,9 +273,9 @@ function UpcomingSidebar({ onFightSelect }) {
                             onClick={(e) => handleFightSelect(e, fight)}
                             sx={{
                               mt: 0.75, p: 0.4, borderRadius: 0.75, textAlign: 'center',
-                              bgcolor: 'rgba(0,174,239,0.08)', border: '1px solid rgba(0,174,239,0.2)',
+                              bgcolor: 'action.selected', border: 1, borderColor: 'divider',
                               cursor: 'pointer',
-                              '&:hover': { bgcolor: 'rgba(0,174,239,0.15)' },
+                              '&:hover': { bgcolor: 'action.hover', borderColor: 'primary.main' },
                               transition: 'all 0.15s',
                             }}
                           >

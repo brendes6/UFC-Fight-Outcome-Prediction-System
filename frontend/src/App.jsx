@@ -1,29 +1,47 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import AppBar from '@mui/material/AppBar';
-import Toolbar from '@mui/material/Toolbar';
-import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import QueryStatsIcon from '@mui/icons-material/QueryStats';
+import Typography from '@mui/material/Typography';
 import Home from './components/Home';
 import UpcomingSidebar from './components/UpcomingSidebar';
 import PreviousSidebar from './components/PreviousSidebar';
 
+const colors = {
+  background: '#1d1a18', paper: '#25201d', text: '#ebe7de', muted: '#b6afa2',
+  accent: '#ca8768', accentSoft: '#d8b7a4', divider: 'rgba(235, 231, 222, 0.15)',
+};
+
 const theme = createTheme({
-  palette: {
-    mode: 'dark',
-    primary: { main: '#00AEEF' },
-    secondary: { main: '#90CAF9' },
-    background: { default: '#121212', paper: '#1E1E1E' },
-    text: { primary: '#E0E0E0', secondary: '#BDBDBD' },
-  },
-  typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-    h5: { fontWeight: 700 },
-    h6: { fontWeight: 600 },
-  },
-});
+    palette: {
+      mode: 'dark',
+      primary: { main: colors.accent },
+      secondary: { main: colors.accentSoft },
+      success: { main: '#9bbf91' },
+      error: { main: '#e29686' },
+      warning: { main: colors.accent },
+      background: { default: colors.background, paper: colors.paper },
+      text: { primary: colors.text, secondary: colors.muted },
+      divider: colors.divider,
+      action: { hover: 'rgba(235, 231, 222, 0.055)' },
+    },
+    shape: { borderRadius: 6 },
+    typography: {
+      fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+      h5: { fontSize: '1.5rem', fontWeight: 600, letterSpacing: '-0.025em' },
+      h6: { fontSize: '1rem', fontWeight: 600, letterSpacing: '-0.015em' },
+      button: { fontWeight: 600, textTransform: 'none', letterSpacing: '0' },
+      caption: { letterSpacing: '0.01em' },
+    },
+    components: {
+      MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } },
+      MuiCard: { styleOverrides: { root: { backgroundImage: 'none', boxShadow: 'none' } } },
+      MuiButton: { styleOverrides: { root: { borderRadius: 4, boxShadow: 'none', '&:hover': { boxShadow: 'none' } } } },
+      MuiOutlinedInput: { styleOverrides: { root: { borderRadius: 4 } } },
+      MuiLinearProgress: { styleOverrides: { root: { borderRadius: 0 }, bar: { borderRadius: 0 } } },
+      MuiChip: { styleOverrides: { root: { borderRadius: 3 } } },
+    },
+  });
 
 function App({ getRoot }) {
   const [fightSelectHandler, setFightSelectHandler] = useState(null);
@@ -32,40 +50,39 @@ function App({ getRoot }) {
     // Warm up the prediction service so the first real request isn't cold.
     getRoot();
   }, [getRoot]);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <AppBar position="static" color="transparent" elevation={0} sx={{ borderBottom: 1, borderColor: 'grey.800' }}>
-          <Toolbar>
-            <QueryStatsIcon sx={{ color: 'primary.main', fontSize: 30, mr: 1.5 }} />
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
+      <Box component="div" className="site-shell">
+        <Box component="header" className="site-header">
+          <Box className="site-identity">
+            <Typography component="p" className="eyebrow">Brendan Desjardins</Typography>
+            <Typography
+              component="p"
+              className="site-title"
+              sx={{ fontSize: { xs: '1.3rem', sm: '1.5rem' }, fontWeight: 600, letterSpacing: '-0.03em' }}
+            >
               UFC Fight Prediction System
             </Typography>
-          </Toolbar>
-        </AppBar>
-        
-        <Box
-          component="main"
-          sx={{
-            flexGrow: 1,
-            display: 'flex', 
-            p: 3,
-            gap: 2,
-            maxWidth: '1600px',
-            margin: '0 auto',
-            width: '100%',
-          }}
-        >
-          <Box sx={{ width: 300, flexShrink: 0, display: { xs: 'none', lg: 'block' } }}>
+          </Box>
+        </Box>
+
+        <Box component="main" className="app-grid">
+          <Box component="aside" className="fight-column previous-column" aria-label="Previous fights">
             <PreviousSidebar onFightSelect={fightSelectHandler} />
           </Box>
-          <Box sx={{ flex: 1, maxWidth: 600 }}>
+          <Box className="analyzer-column">
             <Home onFightSelectRef={setFightSelectHandler} />
           </Box>
-          <Box sx={{ width: 300, flexShrink: 0, display: { xs: 'none', lg: 'block' } }}>
+          <Box component="aside" className="fight-column upcoming-column" aria-label="Upcoming fights">
             <UpcomingSidebar onFightSelect={fightSelectHandler} />
           </Box>
+        </Box>
+
+        <Box component="footer" className="site-footer">
+          <Typography component="span" variant="caption">UFC analytics / Brendan Desjardins</Typography>
+          <a href="https://brendandesjardins.fyi">Back to portfolio</a>
         </Box>
       </Box>
     </ThemeProvider>
