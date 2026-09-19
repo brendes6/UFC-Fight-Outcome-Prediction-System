@@ -538,6 +538,7 @@ func main() {
 		AllowOrigins: []string{
 			"http://localhost:5174",
 			"https://mma-predictor.vercel.app",
+			"https://ufc.brendandesjardins.fyi/"
 		},
 		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
