@@ -58,40 +58,47 @@ function Home({ onFightSelectRef }) {
         Predict a Matchup
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: '40ch' }}>
-        Compare two fighters using the current prediction model.
+        Compare the red and blue corners using the current prediction model.
       </Typography>
       <Box component="form" onSubmit={handleSearch}>
-        <Stack spacing={2}>
+        <Box className="matchup-fields">
           <TextField
-            label="Fighter 1"
+            label="Red corner"
             variant="outlined"
             value={fighter1Query}
             onChange={(e) => setFighter1Query(e.target.value)}
             required
             disabled={loading}
+            fullWidth
+            sx={{ '& .MuiInputLabel-root.Mui-focused': { color: 'primary.main' } }}
           />
+          <Typography aria-hidden="true" className="matchup-versus">VS</Typography>
           <TextField
-            label="Fighter 2"
+            label="Blue corner"
+            color="secondary"
             variant="outlined"
             value={fighter2Query}
             onChange={(e) => setFighter2Query(e.target.value)}
             required
             disabled={loading}
+            fullWidth
+            sx={{ '& .MuiInputLabel-root.Mui-focused': { color: 'secondary.main' } }}
           />
+        </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}>
           <Button
             type="submit"
             variant="contained"
-            color="primary"
             size="large"
-            sx={{ py: 1.25, mt: 1 }}
+            sx={{ bgcolor: '#d8d0c3', color: '#1d1a18', py: 1.1, '&:hover': { bgcolor: '#eee8dd' } }}
             disabled={loading}
           >
-            {loading ? <CircularProgress size={26} color="inherit" /> : 'Analyze Fight'}
+            {loading ? <CircularProgress size={26} color="inherit" /> : 'Predict Fight'}
           </Button>
-        </Stack>
+        </Box>
       </Box>
 
-      <Box sx={{ mt: 4, minHeight: 200 }}>
+      <Box sx={{ mt: 3 }}>
         <Collapse in={!!error}>
           <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
         </Collapse>

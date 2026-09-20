@@ -79,11 +79,11 @@ function UpcomingSidebar({ onFightSelect }) {
   return (
     <Paper elevation={0} sx={{ p: 1.25, borderRadius: 1, border: 1, borderColor: 'divider', bgcolor: 'background.paper', height: 'fit-content', maxHeight: 'calc(100vh - 120px)', overflow: 'auto' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-        <EventIcon sx={{ color: 'primary.main', mr: 0.75, fontSize: 18 }} />
+        <EventIcon sx={{ color: 'warning.main', mr: 0.75, fontSize: 18 }} />
         <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '0.9rem', flex: 1 }}>Upcoming Fights</Typography>
         {!loading && evBetCount > 0 && (
           <Chip icon={<TrendingUpIcon sx={{ fontSize: 12 }} />} label={`${evBetCount} EV`} size="small"
-            sx={{ height: 18, fontSize: '0.55rem', fontWeight: 'bold', bgcolor: 'action.selected', color: 'primary.main', border: 1, borderColor: 'divider', '& .MuiChip-icon': { color: 'primary.main' } }} />
+            sx={{ height: 18, fontSize: '0.55rem', fontWeight: 'bold', bgcolor: 'action.selected', color: 'warning.main', border: 1, borderColor: 'divider', '& .MuiChip-icon': { color: 'warning.main' } }} />
         )}
       </Box>
 
@@ -109,9 +109,9 @@ function UpcomingSidebar({ onFightSelect }) {
               <Card key={index} elevation={0}
                 sx={{
                   borderRadius: 1, border: 1,
-                  borderColor: fightHasEv ? 'primary.main' : 'divider',
+                  borderColor: fightHasEv ? 'warning.main' : 'divider',
                   cursor: 'pointer',
-                  '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
+                  '&:hover': { borderColor: fightHasEv ? 'warning.main' : 'divider', bgcolor: 'action.hover' },
                   transition: 'border-color 0.15s ease, background-color 0.15s ease',
                 }}
                 onClick={(e) => handleCardClick(e, index)}
@@ -206,13 +206,13 @@ function UpcomingSidebar({ onFightSelect }) {
 
                     {/* EV Badge */}
                     {fightHasEv && (
-                      <Box sx={{ p: 0.4, borderRadius: 0.75, bgcolor: 'action.selected', border: 1, borderColor: 'primary.main', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <TrendingUpIcon sx={{ fontSize: 11, color: 'primary.main' }} />
-                        <Typography variant="caption" noWrap sx={{ fontSize: '0.55rem', fontWeight: 700, color: 'primary.main', flex: 1 }}>
+                      <Box sx={{ p: 0.4, borderRadius: 0.75, bgcolor: 'action.selected', border: 1, borderColor: 'warning.main', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <TrendingUpIcon sx={{ fontSize: 11, color: 'warning.main' }} />
+                        <Typography variant="caption" noWrap sx={{ fontSize: '0.55rem', fontWeight: 700, color: 'warning.main', flex: 1 }}>
                           {getBestBetName(fight)}
                         </Typography>
                         <Chip label={`+${(fight.best_bet_ev*100).toFixed(1)}% EV`} size="small"
-                          sx={{ height: 15, fontSize: '0.5rem', fontWeight: 'bold', bgcolor: 'background.paper', color: 'primary.main', border: 1, borderColor: 'primary.main' }} />
+                          sx={{ height: 15, fontSize: '0.5rem', fontWeight: 'bold', bgcolor: 'background.paper', color: 'warning.main', border: 1, borderColor: 'warning.main' }} />
                       </Box>
                     )}
 
@@ -275,11 +275,11 @@ function UpcomingSidebar({ onFightSelect }) {
                               mt: 0.75, p: 0.4, borderRadius: 0.75, textAlign: 'center',
                               bgcolor: 'action.selected', border: 1, borderColor: 'divider',
                               cursor: 'pointer',
-                              '&:hover': { bgcolor: 'action.hover', borderColor: 'primary.main' },
+                              '&:hover': { bgcolor: 'action.hover', borderColor: 'divider' },
                               transition: 'all 0.15s',
                             }}
                           >
-                            <Typography variant="caption" sx={{ fontSize: '0.55rem', color: 'primary.main', fontWeight: 600 }}>
+                            <Typography variant="caption" sx={{ fontSize: '0.55rem', color: 'text.secondary', fontWeight: 600 }}>
                               Open in Matchup Analyzer →
                             </Typography>
                           </Box>

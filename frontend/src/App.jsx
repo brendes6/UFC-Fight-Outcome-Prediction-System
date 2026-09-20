@@ -9,17 +9,18 @@ import PreviousSidebar from './components/PreviousSidebar';
 
 const colors = {
   background: '#1d1a18', paper: '#25201d', text: '#ebe7de', muted: '#b6afa2',
-  accent: '#ca8768', accentSoft: '#d8b7a4', divider: 'rgba(235, 231, 222, 0.15)',
+  red: '#c85a4a', blue: '#5f8fa8', gold: '#cda15a', neutral: '#d8d0c3',
+  divider: 'rgba(235, 231, 222, 0.15)',
 };
 
 const theme = createTheme({
     palette: {
       mode: 'dark',
-      primary: { main: colors.accent },
-      secondary: { main: colors.accentSoft },
-      success: { main: '#9bbf91' },
-      error: { main: '#e29686' },
-      warning: { main: colors.accent },
+      primary: { main: colors.red },
+      secondary: { main: colors.blue },
+      success: { main: '#5e9a62' },
+      error: { main: '#c94b43' },
+      warning: { main: colors.gold },
       background: { default: colors.background, paper: colors.paper },
       text: { primary: colors.text, secondary: colors.muted },
       divider: colors.divider,

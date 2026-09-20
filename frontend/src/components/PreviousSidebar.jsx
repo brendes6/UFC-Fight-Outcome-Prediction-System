@@ -141,7 +141,7 @@ function PreviousSidebar({ onFightSelect }) {
     <Paper elevation={0} sx={{ p: 1.25, borderRadius: 1, border: 1, borderColor: 'divider', bgcolor: 'background.paper', height: 'fit-content', maxHeight: 'calc(100vh - 120px)', overflow: 'auto' }}>
       <Box sx={{ mb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-          <HistoryIcon sx={{ color: 'secondary.main', mr: 0.75, fontSize: 18 }} />
+          <HistoryIcon sx={{ color: 'text.secondary', mr: 0.75, fontSize: 18 }} />
           <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '0.9rem' }}>Previous Fights</Typography>
         </Box>
         {!loading && !error && previousFights.length > 0 && (() => {
@@ -151,11 +151,11 @@ function PreviousSidebar({ onFightSelect }) {
               <Stack spacing={0.5}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>Winner Accuracy:</Typography>
-                  <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.65rem', color: 'primary.main' }}>{stats.winnerAccuracy.toFixed(0)}%</Typography>
+                  <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.65rem', color: 'success.main' }}>{stats.winnerAccuracy.toFixed(0)}%</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>Outcome Accuracy:</Typography>
-                  <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.65rem', color: 'secondary.main' }}>{stats.outcomeAccuracy.toFixed(0)}%</Typography>
+                  <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.65rem', color: 'text.primary' }}>{stats.outcomeAccuracy.toFixed(0)}%</Typography>
                 </Box>
               </Stack>
             </Box>

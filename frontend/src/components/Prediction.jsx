@@ -70,7 +70,7 @@ function Prediction({ pred, fighter1, fighter2 }) {
         {valuePicks.length > 0 && valuePicks[0] !== "No value picks available." && (
           <Box sx={{ mt: 3 }}>
             <Divider sx={{ mb: 2 }} />
-            <Typography variant="subtitle1" fontWeight="bold" color="primary.main" display="flex" alignItems="center" mb={1}>
+            <Typography variant="subtitle1" fontWeight="bold" color="warning.main" display="flex" alignItems="center" mb={1}>
               <EmojiEventsIcon sx={{ mr: 1 }} /> Value Picks
             </Typography>
             {valuePicks.map((pick, i) => (
