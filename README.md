@@ -16,7 +16,7 @@ from an automated data pipeline, an ensemble of neural network and XGBoost model
 It also runs a full MLOps retraining loop to track experiments/promotion and ingests live odds to find
 fights where the platform and models disagree with the market.
 
-**Live demo:** https://mma-predictor.vercel.app/
+**Live demo:** https://ufc.brendandesjardins.fyi/
 ![UFC App demo](docs/demo.gif)
 
 ---
