@@ -34,8 +34,9 @@ def _clock(value):
         return None
 
 
-def _sum_column(rows, index, parser):
-    totals = [0, 0]
+def _sum_column(rows, index, parser, paired=False):
+    """Sum a two-fighter column, preserving landed/attempted pairs when needed."""
+    totals = [[0, 0], [0, 0]] if paired else [0, 0]
     found = [False, False]
     for row in rows:
         cells = row.find_all("td", recursive=False)
@@ -48,9 +49,15 @@ def _sum_column(rows, index, parser):
             parsed = parser(value)
             if parsed is None:
                 continue
-            if isinstance(parsed, tuple):
-                parsed = parsed[0]
-            totals[side] += parsed
+            if paired:
+                if not isinstance(parsed, tuple):
+                    continue
+                totals[side][0] += parsed[0]
+                totals[side][1] += parsed[1]
+            else:
+                if isinstance(parsed, tuple):
+                    parsed = parsed[0]
+                totals[side] += parsed
             found[side] = True
     return totals if all(found) else None
 
@@ -96,9 +103,9 @@ def parse_fight_detail_stats(html):
         names = _pair(cells[0])
         if not names:
             continue
-        sig = _sum_column(rows, 2, _landed)
-        total = _sum_column(rows, 4, _landed)
-        td = _sum_column(rows, 5, _landed)
+        sig = _sum_column(rows, 2, _landed, paired=True)
+        total = _sum_column(rows, 4, _landed, paired=True)
+        td = _sum_column(rows, 5, _landed, paired=True)
         sub = _sum_column(rows, 7, _integer)
         kd = _sum_column(rows, 1, _integer)
         control = _sum_column(rows, 9, _clock)
