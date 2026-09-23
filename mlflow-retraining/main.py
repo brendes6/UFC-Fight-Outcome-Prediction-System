@@ -9,6 +9,7 @@ is done via the champion alias in MLFlow and the onnx models in GCS are updated.
 """
 
 import json
+import os
 from datetime import date
 
 import numpy as np
@@ -27,6 +28,9 @@ from model_util import (
 
 EXPERIMENT = "ufc-predictor"
 PROMOTION_MARGIN = 0.005  # candidate must beat the champion by this much to win
+PROMOTION_ENABLED = os.environ.get("ENABLE_MODEL_PROMOTION", "false").lower() in {
+    "1", "true", "yes"
+}
 
 
 def onnx_serving_probs(nn_path, xgb_path, scaler_dict, raw):
@@ -77,6 +81,8 @@ with mlflow.start_run(run_name=f"retrain_{date.today()}") as run:
         "split_type": "temporal",
         "augmentation": "red_blue_swap",
         "ensemble_type": "nn+xgboost",
+        "feature_version": registry.FEATURE_VERSION,
+        "promotion_enabled": str(PROMOTION_ENABLED).lower(),
         # NN params
         "nn_learning_rate": 0.0005,
         "nn_batch_size": 64,
@@ -152,7 +158,7 @@ with mlflow.start_run(run_name=f"retrain_{date.today()}") as run:
     client = MlflowClient()
     champion_acc = registry.get_champion_accuracy(client)
 
-    if accuracy["winner"] > champion_acc + PROMOTION_MARGIN:
+    if PROMOTION_ENABLED and accuracy["winner"] > champion_acc + PROMOTION_MARGIN:
         next_version = get_current_version() + 1
         registry.promote(
             client, version.version, accuracy,
@@ -165,5 +171,9 @@ with mlflow.start_run(run_name=f"retrain_{date.today()}") as run:
               f"(serving v{next_version})")
     else:
         mlflow.set_tag("promoted", "false")
-        print(f"No promotion: {accuracy['winner']:.3f} didn't beat "
-              f"champion {champion_acc:.3f} + {PROMOTION_MARGIN}")
+        if not PROMOTION_ENABLED:
+            mlflow.set_tag("promotion_blocked_reason", "disabled_by_default")
+            print("No promotion: ENABLE_MODEL_PROMOTION is not enabled")
+        else:
+            print(f"No promotion: {accuracy['winner']:.3f} didn't beat "
+                  f"champion {champion_acc:.3f} + {PROMOTION_MARGIN}")

@@ -9,10 +9,13 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import xgboost as xgb
-import data_cleaning
 import db
 from sqlalchemy import text
 from augment import FINAL_FEATURES, swap_augment
+import pit_features
+
+if FINAL_FEATURES != pit_features.FINAL_FEATURES:
+    raise RuntimeError("model and point-in-time feature contracts are out of sync")
 from datetime import date
 
 # Custom dataset for loading UFC data
@@ -80,6 +83,7 @@ def scaler_to_metadata(scaler):
     means = scaler.mean_.tolist()
     stds = scaler.scale_.tolist()
     return {
+        "feature_version": pit_features.FEATURE_VERSION,
         "means": {name: val for name, val in zip(FINAL_FEATURES, means)},
         "stds": {name: val for name, val in zip(FINAL_FEATURES, stds)},
         "saved_order": FINAL_FEATURES
@@ -87,45 +91,48 @@ def scaler_to_metadata(scaler):
 
 
 def clean_up_data(df: pd.DataFrame) -> pd.DataFrame:
-    """Clean data using cleaning scripts"""
-    df = data_cleaning.clean_up_data(df)
-    df = data_cleaning.get_elos_and_streaks(df)
-    df = data_cleaning.get_defense_data(df)
-    df = data_cleaning.calculate_metrics(df)
-
-    return df
+    """Build the canonical pre-event feature snapshots from raw bouts."""
+    if "feature_version" in df.columns and set(FINAL_FEATURES).issubset(df.columns):
+        return df.copy()
+    return pit_features.build_point_in_time_features(df)
 
 def load_data() -> pd.DataFrame:
-    """Load the full historical fight set from the ufc_master table."""
-    return db.read_table("ufc_master")
+    """Load the versioned, leakage-safe training table."""
+    return db.read_table("fight_features")
 
 def clean_and_scale(data):
     """Clean, augment, and scale data with temporal split and corner debiasing."""
 
     clean_df = clean_up_data(data)
 
-    # Filter out fights where either fighter has 0 wins
-    clean_df = clean_df[(clean_df["RedWins"] > 0) & (clean_df["BlueWins"] > 0)]
+    # Only bouts with a real winner/method label are supervised examples.
+    # Debuts remain valid rows: their pre-fight state is simply a neutral,
+    # zero-history state rather than a reason to discard the bout.
+    clean_df = clean_df[clean_df["categorical_outcome"].notna()].copy()
 
     X = clean_df[FINAL_FEATURES].copy()
 
-    # Replace any remaining inf/NaN from edge cases (e.g., 0 total fights for avg rounds)
     X = X.replace([np.inf, -np.inf], np.nan)
-    X = X.fillna(0)
+    if X.isna().any().any():
+        missing = X.columns[X.isna().any()].tolist()
+        raise ValueError(f"point-in-time feature contract contains nulls: {missing}")
 
-    y = clean_df["categorical_outcome"].values
+    # pandas promotes the nullable label column to float because unlabeled
+    # draw/NC rows are represented as NaN.  Supervised model APIs require
+    # integer class ids after those rows have been filtered out.
+    y = clean_df["categorical_outcome"].astype(int).to_numpy()
 
-    # Temporal split: train on older fights, validate on recent ones
-    # Parse dates and sort chronologically for a proper temporal split
-    dates = pd.to_datetime(clean_df["Date"], format="mixed")
-    sorted_idx = dates.argsort()
-
-    X_sorted = X.values[sorted_idx]
-    y_sorted = y[sorted_idx]
-
-    split_idx = int(len(X_sorted) * 0.8)
-    X_train_raw, X_val_raw = X_sorted[:split_idx], X_sorted[split_idx:]
-    y_train_raw, y_val_raw = y_sorted[:split_idx], y_sorted[split_idx:]
+    # Temporal split on complete events, never by rows within the same card.
+    event_dates = pd.to_datetime(clean_df["event_date"], format="mixed")
+    unique_events = event_dates.sort_values().drop_duplicates().to_numpy()
+    split_idx = max(1, int(len(unique_events) * 0.8))
+    cutoff = unique_events[min(split_idx, len(unique_events) - 1)]
+    train_mask = event_dates.to_numpy() < cutoff
+    val_mask = ~train_mask
+    if not train_mask.any() or not val_mask.any():
+        raise ValueError("temporal split needs at least one training and validation event")
+    X_train_raw, X_val_raw = X.values[train_mask], X.values[val_mask]
+    y_train_raw, y_val_raw = y[train_mask], y[val_mask]
 
     # Red/blue swap augmentation on training data only
     # Doubles training data and removes corner bias
@@ -288,13 +295,13 @@ def train_xgboost(X_train, y_train, X_val, y_val):
         eval_metric="mlogloss",
         early_stopping_rounds=20,
         random_state=42,
-        verbosity=1,
+        verbosity=0,
     )
 
     xgb_model.fit(
         X_train, y_train,
         eval_set=[(X_val, y_val)],
-        verbose=True
+        verbose=False
     )
 
     # Evaluate on validation set
@@ -451,4 +458,3 @@ def update_production_accuracy_in_db(winner_accuracy, version):
             ),
             {"acc": float(winner_accuracy), "ver": int(version), "trained_at": str(date.today())},
         )
-

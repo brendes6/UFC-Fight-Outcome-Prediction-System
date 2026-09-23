@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 from dateutil.parser import parse
 import requests
-import data_cleaning
+from rebuild_canonical import rebuild_canonical_state
 import os
 import db
 from datetime import date
@@ -11,6 +11,7 @@ is_upcoming = False
 is_most_recent = True
 import time
 from scrape_util import get_text_helper
+from fight_detail_stats import parse_fight_detail_stats
 
 
 
@@ -59,6 +60,7 @@ def scrape_previous_fights():
 
     did_red_lose_list = []
     winner_list = []
+    fight_totals_by_fighter = {}
     fight_links = bs.find_all('a', {'class':'b-flag'})
     if not fight_links:
         print("Something went wrong...")
@@ -85,6 +87,10 @@ def scrape_previous_fights():
                 bs_temp = BeautifulSoup(temp_html, 'html.parser')
                 status_el = bs_temp.find('i', {'class': 'b-fight-details__person-status'})
                 fight_result = status_el.get_text().strip() if status_el else 'NC'
+                try:
+                    fight_totals_by_fighter.update(parse_fight_detail_stats(temp_html))
+                except (TypeError, ValueError) as exc:
+                    print(f"Could not parse bout totals from {link}: {exc}")
                 if fight_result == 'L':
                     did_red_lose_list.append(True)
                     winner_list.append('Blue')
@@ -804,6 +810,19 @@ def scrape_previous_fights():
 
         df['TotalFightTimeSecs'] = df.apply(lambda x: get_fight_time_secs(x['FinishRound'], x['FinishRoundTime']), axis=1)
         
+    # Store detailed totals by fighter name, never by page position.  The
+    # historical scraper may reorder corners, so positional assignment can
+    # silently attach one fighter's stats to the other fighter.
+    for corner in ("Red", "Blue"):
+        for field in (
+            "MatchSigStr", "MatchSigStrAttempted", "MatchTotalStr",
+            "MatchTotalStrAttempted", "MatchTD", "MatchTDAttempted",
+            "MatchSubAtt", "MatchKD", "MatchControlTime", "MatchFightTime",
+        ):
+            df[f"{corner}{field}"] = df[f"{corner}Fighter"].map(
+                lambda name, field=field: fight_totals_by_fighter.get(name, {}).get(field)
+            )
+
     df['Winner'] = winner_list
     df['BlueCurrentWinStreak'] = blue_fighter_win_streak
     df['BlueCurrentLoseStreak'] = blue_fighter_lose_streak
@@ -973,30 +992,16 @@ def scrape_previous_fights():
     return df
 
 
-def clean_up_data(df):
-    # Clean and structure data for database
-    print("Cleaning data...")
-    
-    df = data_cleaning.clean_up_data(df)
-    df = data_cleaning.get_elos_and_streaks(df)
-    df = data_cleaning.get_defense_data(df)
-    df = data_cleaning.calculate_metrics(df)
-    df = data_cleaning.get_data_points(df)
-    df = data_cleaning.extract_fighter_stats(df)
-
-    print("Data cleaned successfully!\n\n")
-
-    return df
-
-
-def update_db(stat_df):
-    # Update database with new data
-    print("Uploading fighter stats...")
-
-    records = stat_df.to_dict(orient="records")
-    db.upsert_records("fighters", "fighter_tag", records)
-
-    print(f"Updated {len(records)} fighters in the fighters table\n\n")
+def clean_up_data():
+    """Rebuild canonical historical features and current fighter snapshots."""
+    print("Rebuilding point-in-time features...")
+    feature_frame, fighter_frame, legacy_tags = rebuild_canonical_state(apply=True)
+    print(
+        f"Rebuilt {len(feature_frame)} fight snapshots and "
+        f"{len(fighter_frame)} current fighter states; "
+        f"retained legacy fighters={len(legacy_tags)}\n\n"
+    )
+    return fighter_frame
 
 
 def scrape_upcoming_fights():
@@ -1168,19 +1173,16 @@ def update_prev_predictions(event_df):
                 data["result"] = int(actual_result["Result"])
                 db.upsert_json_doc("previous", doc_id, data)
                 print(f"Moved {fight_id} to previous collection")
-
-            # Pop out item from upcoming
-            db.delete_doc("upcoming", doc_id)
-            print(f"Deleted {fight_id} from upcoming collection")
+                # Remove only predictions that were successfully archived.
+                db.delete_doc("upcoming", doc_id)
+                print(f"Deleted {fight_id} from upcoming collection")
 
     print("Previous predictions updated\n\n")
 
 if __name__ == "__main__":
 
     event_df = scrape_previous_fights()
-    event_copy = event_df.copy()
-    stat_df = clean_up_data(event_copy)
-    update_db(stat_df)
+    clean_up_data()
     update_prev_predictions(event_df)
 
     df, date_key = scrape_upcoming_fights()

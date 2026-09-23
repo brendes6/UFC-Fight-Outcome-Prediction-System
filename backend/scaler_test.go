@@ -19,9 +19,10 @@ func buildScalerJSON(t *testing.T, mutate func(means, stds map[string]float64)) 
 		mutate(means, stds)
 	}
 	b, err := json.Marshal(map[string]any{
-		"means":       means,
-		"stds":        stds,
-		"saved_order": finalFeatures,
+		"feature_version": featureVersion,
+		"means":           means,
+		"stds":            stds,
+		"saved_order":     finalFeatures,
 	})
 	if err != nil {
 		t.Fatalf("marshal scaler json: %v", err)
@@ -49,7 +50,7 @@ func TestParseScalerOrderedArrayForm(t *testing.T) {
 		means[i] = 0.5
 		stds[i] = 1.5
 	}
-	b, _ := json.Marshal(map[string]any{"means": means, "stds": stds, "saved_order": finalFeatures})
+	b, _ := json.Marshal(map[string]any{"feature_version": featureVersion, "means": means, "stds": stds, "saved_order": finalFeatures})
 
 	meta, err := parseScalerMetadata(b)
 	if err != nil {
@@ -67,7 +68,7 @@ func TestParseScalerDefaultsSavedOrder(t *testing.T) {
 		means[f] = 1
 		stds[f] = 1
 	}
-	b, _ := json.Marshal(map[string]any{"means": means, "stds": stds}) // no saved_order
+	b, _ := json.Marshal(map[string]any{"feature_version": featureVersion, "means": means, "stds": stds}) // no saved_order
 
 	meta, err := parseScalerMetadata(b)
 	if err != nil {
@@ -85,10 +86,23 @@ func TestParseScalerRejectsZeroStd(t *testing.T) {
 	}
 }
 
+func TestParseScalerRejectsMissingFeatureVersion(t *testing.T) {
+	b := buildScalerJSON(t, nil)
+	var payload map[string]any
+	if err := json.Unmarshal(b, &payload); err != nil {
+		t.Fatal(err)
+	}
+	delete(payload, "feature_version")
+	b, _ = json.Marshal(payload)
+	if _, err := parseScalerMetadata(b); err == nil {
+		t.Fatal("expected error for missing feature version")
+	}
+}
+
 func TestParseScalerRejectsWrongLengthArray(t *testing.T) {
 	means := make([]float64, len(finalFeatures)-1) // too short
 	stds := make([]float64, len(finalFeatures)-1)
-	b, _ := json.Marshal(map[string]any{"means": means, "stds": stds, "saved_order": finalFeatures})
+	b, _ := json.Marshal(map[string]any{"feature_version": featureVersion, "means": means, "stds": stds, "saved_order": finalFeatures})
 	if _, err := parseScalerMetadata(b); err == nil {
 		t.Fatal("expected error for wrong-length means array")
 	}
@@ -105,7 +119,7 @@ func TestParseScalerRejectsWrongFeatureOrder(t *testing.T) {
 		means[f] = 1
 		stds[f] = 1
 	}
-	b, _ := json.Marshal(map[string]any{"means": means, "stds": stds, "saved_order": shuffled})
+	b, _ := json.Marshal(map[string]any{"feature_version": featureVersion, "means": means, "stds": stds, "saved_order": shuffled})
 	if _, err := parseScalerMetadata(b); err == nil {
 		t.Fatal("expected error when saved_order does not match the canonical feature order")
 	}

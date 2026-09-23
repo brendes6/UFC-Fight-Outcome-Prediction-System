@@ -24,6 +24,7 @@ import (
 
 const numModels = 2
 const gcsBucket = "ufc-proj-models"
+const featureVersion = "pit-v1"
 
 // Model file names: one neural network, one XGBoost (heterogeneous ensemble)
 var modelFiles = [numModels]string{"nn_model.onnx", "xgb_model.onnx"}
@@ -78,15 +79,17 @@ type Fighter struct {
 // Struct storing metadata of means/std's for
 // our input pre-processing, loaded from GCS blob storage
 type ScalerMetadata struct {
-	Means      map[string]float64 `json:"means"`
-	Stds       map[string]float64 `json:"stds"`
-	SavedOrder []string           `json:"saved_order"`
+	FeatureVersion string             `json:"feature_version"`
+	Means          map[string]float64 `json:"means"`
+	Stds           map[string]float64 `json:"stds"`
+	SavedOrder     []string           `json:"saved_order"`
 }
 
 type rawScalerMetadata struct {
-	Means      json.RawMessage `json:"means"`
-	Stds       json.RawMessage `json:"stds"`
-	SavedOrder []string        `json:"saved_order"`
+	FeatureVersion string          `json:"feature_version"`
+	Means          json.RawMessage `json:"means"`
+	Stds           json.RawMessage `json:"stds"`
+	SavedOrder     []string        `json:"saved_order"`
 }
 
 // Struct for inference results structuring
@@ -153,9 +156,10 @@ func parseScalerMetadata(data []byte) (*ScalerMetadata, error) {
 	}
 
 	meta := &ScalerMetadata{
-		Means:      means,
-		Stds:       stds,
-		SavedOrder: savedOrder,
+		FeatureVersion: raw.FeatureVersion,
+		Means:          means,
+		Stds:           stds,
+		SavedOrder:     savedOrder,
 	}
 	if err := validateScalerMetadata(meta); err != nil {
 		return nil, err
@@ -164,6 +168,9 @@ func parseScalerMetadata(data []byte) (*ScalerMetadata, error) {
 }
 
 func validateScalerMetadata(meta *ScalerMetadata) error {
+	if meta.FeatureVersion != featureVersion {
+		return fmt.Errorf("invalid scaler feature version: got %q, want %q", meta.FeatureVersion, featureVersion)
+	}
 	if len(meta.SavedOrder) != len(finalFeatures) {
 		return fmt.Errorf("invalid scaler feature count: got %d, want %d", len(meta.SavedOrder), len(finalFeatures))
 	}

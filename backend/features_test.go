@@ -14,7 +14,7 @@ func identityMeta() *ScalerMetadata {
 		means[f] = 0
 		stds[f] = 1
 	}
-	return &ScalerMetadata{Means: means, Stds: stds, SavedOrder: finalFeatures}
+	return &ScalerMetadata{FeatureVersion: featureVersion, Means: means, Stds: stds, SavedOrder: finalFeatures}
 }
 
 func featureValue(t *testing.T, feats []float32, name string) float64 {

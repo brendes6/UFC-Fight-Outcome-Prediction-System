@@ -28,6 +28,7 @@ MODEL_CODE_PATH = os.path.join(os.path.dirname(__file__), "ensemble_model.py")
 
 SERVING_BUCKET = os.environ.get("SERVING_BUCKET", "ufc-proj-models")
 SERVING_PREFIX = os.environ.get("SERVING_PREFIX", "production")
+FEATURE_VERSION = "pit-v1"
 
 
 # Tracking setup
@@ -78,6 +79,8 @@ def log_and_register(run_id, nn_onnx_path, xgb_onnx_path, scaler_path, accuracy,
                                  "winner_accuracy", f"{accuracy['winner']:.6f}")
     client.set_model_version_tag(REGISTERED_MODEL, version.version,
                                  "outcome_accuracy", f"{accuracy['outcome']:.6f}")
+    client.set_model_version_tag(REGISTERED_MODEL, version.version,
+                                 "feature_version", FEATURE_VERSION)
     return version
 
 
@@ -119,6 +122,7 @@ def sync_to_serving(nn_onnx_path, xgb_onnx_path, scaler_dict, version, winner_ac
         json.dumps({
             "version": version,
             "winner_accuracy": winner_accuracy,
+            "feature_version": scaler_dict.get("feature_version", FEATURE_VERSION),
             "trained_at": str(date.today()),
         })
     )

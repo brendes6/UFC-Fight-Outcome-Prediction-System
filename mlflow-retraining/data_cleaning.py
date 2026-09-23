@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import os
+import pit_features
 
 
 
@@ -103,39 +103,6 @@ def get_elos_and_streaks(df):
                 fighter_finish_l5[row["BlueFighter"]].append(1)
     return df.sort_index().drop(columns=["_parsed_date"])
 
-
-def get_defense_data(df):
-    """Get defense data for fighters from the defense data CSV file.
-
-    Input:
-        df: DataFrame containing fight data
-    Output:
-        DataFrame with defense data added for both fighters.
-    """
-    current_script_dir = os.path.dirname(os.path.abspath(__file__))
-    defense_df = pd.read_csv(os.path.join(current_script_dir, "defense_data.csv"))
-    
-    # Merge for red fighter
-    df = df.merge(
-        defense_df[['name', 'significant_strikes_absorbed_per_minute']],
-        left_on='RedFighter',
-        right_on='name',
-        how='left'
-    )
-    df.rename(columns={'significant_strikes_absorbed_per_minute': 'RedSigStrAbsorbed'}, inplace=True)
-    df.drop(columns=['name'], inplace=True)
-    
-    # Merge for blue fighter
-    df = df.merge(
-        defense_df[['name', 'significant_strikes_absorbed_per_minute']],
-        left_on='BlueFighter',
-        right_on='name',
-        how='left'
-    )
-    df.rename(columns={'significant_strikes_absorbed_per_minute': 'BlueSigStrAbsorbed'}, inplace=True)
-    df.drop(columns=['name'], inplace=True)
-
-    return df
 
 
 def calculate_metrics(df, fighter_specific=False):
@@ -256,10 +223,13 @@ def get_data_points(df):
     ]
 
 
-    # Remove rows with null values
+    # Never impute from the complete dataset: that would leak validation-era
+    # distribution information into training.  The canonical pipeline emits
+    # finite zero-history values explicitly and fails closed on unexpected
+    # nulls.
     for column in data_points:
         if df[column].isnull().sum() > 0:
-            df[column] = df[column].fillna(df[column].mean())
+            raise ValueError(f"unexpected nulls in feature column {column}")
 
     
     df = df[df["RedWins"] > 0]
@@ -310,14 +280,7 @@ def get_clean_data(df):
         DataFrame with cleaned fight data.
     """
 
-    # Essentially pass data through all functions to clean it
-    df = clean_up_data(df)
-    df = get_elos_and_streaks(df)
-    df = get_defense_data(df)
-    df = calculate_metrics(df)
-    df = get_data_points(df)
-
-    return df
+    return pit_features.build_point_in_time_features(df)
 
 def extract_fighter_stats(data):
     """Extract fighter statistics from the cleaned fight data CSV file.
