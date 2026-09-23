@@ -24,6 +24,7 @@ from model_util import (
     load_data, clean_and_scale, train_model, train_xgboost,
     export_nn_to_onnx, export_xgb_to_onnx, evaluate_ensemble, ensemble_probs,
     scaler_to_metadata, get_current_version, update_production_accuracy_in_db,
+    TRAINING_SEED,
 )
 
 EXPERIMENT = "ufc-predictor"
@@ -82,6 +83,7 @@ with mlflow.start_run(run_name=f"retrain_{date.today()}") as run:
         "augmentation": "red_blue_swap",
         "ensemble_type": "nn+xgboost",
         "feature_version": registry.FEATURE_VERSION,
+        "training_seed": TRAINING_SEED,
         "promotion_enabled": str(PROMOTION_ENABLED).lower(),
         # NN params
         "nn_learning_rate": 0.0005,
@@ -104,7 +106,9 @@ with mlflow.start_run(run_name=f"retrain_{date.today()}") as run:
     mlflow.log_metric("nn_val_loss", nn_val_loss)
 
     print("=" * 60, "\nTraining XGBoost...\n", "=" * 60)
-    xgb_model, xgb_val_loss = train_xgboost(X_train, y_train, X_val, y_val)
+    xgb_model, xgb_val_loss = train_xgboost(
+        X_train, y_train, X_val, y_val, seed=TRAINING_SEED
+    )
     mlflow.log_metric("xgb_val_loss", xgb_val_loss)
 
     # Evaluate heterogeneous ensemble

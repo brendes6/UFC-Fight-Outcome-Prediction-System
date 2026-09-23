@@ -20,6 +20,7 @@ import os
 
 import mlflow
 from mlflow.tracking import MlflowClient
+import pit_features
 
 REGISTERED_MODEL = os.environ.get("MLFLOW_REGISTERED_MODEL", "ufc-fight-predictor")
 CHAMPION_ALIAS = "champion"
@@ -28,7 +29,7 @@ MODEL_CODE_PATH = os.path.join(os.path.dirname(__file__), "ensemble_model.py")
 
 SERVING_BUCKET = os.environ.get("SERVING_BUCKET", "ufc-proj-models")
 SERVING_PREFIX = os.environ.get("SERVING_PREFIX", "production")
-FEATURE_VERSION = "pit-v1"
+FEATURE_VERSION = pit_features.FEATURE_VERSION
 
 
 # Tracking setup

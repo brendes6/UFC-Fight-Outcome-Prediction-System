@@ -1,4 +1,7 @@
-from sklearn.model_selection import StratifiedKFold
+import copy
+import os
+import random
+
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -7,7 +10,6 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
 import xgboost as xgb
 import db
 from sqlalchemy import text
@@ -17,6 +19,18 @@ import pit_features
 if FINAL_FEATURES != pit_features.FINAL_FEATURES:
     raise RuntimeError("model and point-in-time feature contracts are out of sync")
 from datetime import date
+
+
+TRAINING_SEED = int(os.environ.get("TRAINING_SEED", "42"))
+
+
+def seed_everything(seed=TRAINING_SEED):
+    """Make local training runs reproducible across Python, NumPy, and Torch."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 # Custom dataset for loading UFC data
 class UFCDataset(Dataset):
@@ -92,7 +106,19 @@ def scaler_to_metadata(scaler):
 
 def clean_up_data(df: pd.DataFrame) -> pd.DataFrame:
     """Build the canonical pre-event feature snapshots from raw bouts."""
-    if "feature_version" in df.columns and set(FINAL_FEATURES).issubset(df.columns):
+    if set(FINAL_FEATURES).issubset(df.columns):
+        if "feature_version" not in df.columns:
+            raise ValueError(
+                "precomputed training features are missing feature_version"
+            )
+        if df["feature_version"].isna().any():
+            raise ValueError("precomputed training features contain null feature_version")
+        versions = set(df["feature_version"].unique())
+        if versions != {pit_features.FEATURE_VERSION}:
+            raise ValueError(
+                "training data contains unsupported feature versions: "
+                f"{sorted(versions)}; expected {pit_features.FEATURE_VERSION}"
+            )
         return df.copy()
     return pit_features.build_point_in_time_features(df)
 
@@ -169,9 +195,10 @@ def mixup_criterion(criterion, pred, y_a, y_b, lam):
     return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
 
 
-def train_model(X_train, y_train, X_val, y_val):
+def train_model(X_train, y_train, X_val, y_val, seed=TRAINING_SEED):
     """Train and return a neural network model"""
 
+    seed_everything(seed)
     model = NN(X_train.shape[1], 6)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -185,7 +212,14 @@ def train_model(X_train, y_train, X_val, y_val):
 
     # Load from our custom ufc dataset
     train_dataset = UFCDataset(X_train, y_train)
-    train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+    generator = torch.Generator()
+    generator.manual_seed(seed)
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        generator=generator,
+    )
     
     # If we have validation data, load it
     if X_val is not None and y_val is not None:
@@ -258,24 +292,29 @@ def train_model(X_train, y_train, X_val, y_val):
                 best_val_loss = avg_val_loss
                 counter = 0
                 # Save best model weights to restore later
-                best_model_state = model.state_dict().copy()
+                # A shallow dict copy still aliases the live parameter tensors,
+                # so early stopping would restore the final weights instead of
+                # the best validation checkpoint.
+                best_model_state = copy.deepcopy(model.state_dict())
 
             else:
                 counter += 1
                 if counter >= patience:
                     print(f"Early stopping triggered at epoch {epoch+1}")
-                    # Restore best model weights before returning
-                    if best_model_state is not None:
-                        model.load_state_dict(best_model_state)
-                        print(f"Restored best model (val_loss: {best_val_loss:.4f})")
                     break
         else:
             print(f"Epoch {epoch+1}/{num_epochs}, Loss: {running_loss/len(train_loader):.4f}")
 
+    # Restore the best checkpoint both after early stopping and after a run
+    # that reaches the epoch cap without exhausting patience.
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+        print(f"Restored best model (val_loss: {best_val_loss:.4f})")
+
     return model, best_val_loss
 
 
-def train_xgboost(X_train, y_train, X_val, y_val):
+def train_xgboost(X_train, y_train, X_val, y_val, seed=TRAINING_SEED):
     """Train and return an XGBoost classifier.
     
     XGBoost learns step-function decision boundaries that complement 
@@ -294,7 +333,7 @@ def train_xgboost(X_train, y_train, X_val, y_val):
         num_class=6,
         eval_metric="mlogloss",
         early_stopping_rounds=20,
-        random_state=42,
+        random_state=seed,
         verbosity=0,
     )
 

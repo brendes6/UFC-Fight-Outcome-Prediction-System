@@ -245,7 +245,11 @@ def _build(data, return_states=False):
         raise ValueError("one or more fight dates could not be parsed")
     df["_source_order"] = np.arange(len(df))
     df["_event_key"] = df.apply(_event_key, axis=1)
-    df = df.sort_values(["_event_date", "_event_key", "_source_order"])
+    sort_columns = ["_event_date", "_event_key"]
+    if "FightTag" in df.columns:
+        sort_columns.append("FightTag")
+    sort_columns.append("_source_order")
+    df = df.sort_values(sort_columns, kind="mergesort")
     states = defaultdict(_new_state)
     result_rows = []
 

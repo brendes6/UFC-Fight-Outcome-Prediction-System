@@ -1,21 +1,19 @@
 """Train and evaluate the point-in-time dataset without MLflow model registry/promotion.
 """
 
-import numpy as np
-import torch
-
 from model_util import (
     clean_and_scale,
     evaluate_ensemble,
     load_data,
     train_model,
     train_xgboost,
+    seed_everything,
 )
 
 
 def main():
-    np.random.seed(7)
-    torch.manual_seed(7)
+    evaluation_seed = 7
+    seed_everything(evaluation_seed)
 
     data = load_data()
     labeled = data[data["categorical_outcome"].notna()]
@@ -30,10 +28,14 @@ def main():
         f"features={X_train.shape[1]}"
     )
 
-    nn_model, nn_val_loss = train_model(X_train, y_train, X_val, y_val)
+    nn_model, nn_val_loss = train_model(
+        X_train, y_train, X_val, y_val, seed=evaluation_seed
+    )
     print(f"nn_validation_loss={nn_val_loss:.6f}")
 
-    xgb_model, xgb_val_loss = train_xgboost(X_train, y_train, X_val, y_val)
+    xgb_model, xgb_val_loss = train_xgboost(
+        X_train, y_train, X_val, y_val, seed=evaluation_seed
+    )
     print(f"xgb_validation_loss={xgb_val_loss:.6f}")
 
     accuracy = evaluate_ensemble(nn_model, xgb_model, X_val, y_val)
