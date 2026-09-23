@@ -68,7 +68,7 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install test dependencies
-        run: pip install numpy pytest
+        run: pip install numpy pytest pandas
       - name: Compile check (all pipelines parse)
         run: python -m compileall -q fight-scraper odds-scraper mlflow-retraining
       - name: Test
