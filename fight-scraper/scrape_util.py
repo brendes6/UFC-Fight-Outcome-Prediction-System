@@ -6,6 +6,27 @@ the challenge; otherwise, the raw response text is returned so that callers can 
 """
 
 
+def parse_height_cm(value):
+    """Convert an UFCStats height to centimeters, tolerating missing values."""
+    cleaned = str(value or "").replace("'", "").replace('"', "").strip()
+    if cleaned in {"", "--", "nan", "N/A"}:
+        return 0.0
+
+    parts = cleaned.split()
+    if len(parts) < 2:
+        return 0.0
+    try:
+        total_inches = int(parts[0]) * 12 + int(parts[1])
+    except (TypeError, ValueError):
+        return 0.0
+    return total_inches * 2.54
+
+
+def normalize_fighter_tag(name):
+    """Build the fighter tag used by the scraper and canonical data tables."""
+    return "_".join(str(name or "").lower().replace("-", " ").split())
+
+
 def get_text_helper(url, session):
     response = session.get(url)
 

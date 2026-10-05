@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 
-FEATURE_VERSION = "pit-v1"
+FEATURE_VERSION = "pit-v2"
 
 FINAL_FEATURES = [
     "RedWinPct", "BlueWinPct", "WinPctDif", "RedKoPct", "BlueKoPct", "KoPctDif",
@@ -26,6 +26,22 @@ FINAL_FEATURES = [
     "BlueAvgRounds", "EloDif", "OpponentEloDif", "RedElo", "BlueElo", "WinStreakDif",
     "RedCurrentWinStreak", "BlueCurrentWinStreak", "RedFinishL5", "BlueFinishL5",
     "FinishL5Dif", "FinishPctDif",
+    "BlueWeightLbs", "WeightLbsDif", "RedDaysSinceLastFight", "BlueDaysSinceLastFight",
+    "DaysSinceLastFightDif", "RedExperience", "BlueExperience", "ExperienceDif",
+    "RedTDAccuracy", "BlueTDAccuracy", "TDAccuracyDif", "RedTDDefense", "BlueTDDefense",
+    "TDDefenseDif", "RedSigStrDefense", "BlueSigStrDefense", "SigStrDefenseDif",
+    "RedAvgTDAttempted", "BlueAvgTDAttempted", "TDAttemptedDif", "RedRecentWinPct",
+    "BlueRecentWinPct", "RecentWinPctDif", "RedRecentSigStrLanded", "BlueRecentSigStrLanded",
+    "RecentSigStrDif", "RedRecentSigStrPct", "BlueRecentSigStrPct", "RecentSigStrPctDif",
+    "RedRecentTDLanded", "BlueRecentTDLanded", "RecentTDLandedDif", "RedRecentTDDefense",
+    "BlueRecentTDDefense", "RecentTDDefenseDif", "RedRecentSubAtt", "BlueRecentSubAtt",
+    "RecentSubAttDif", "RedRecentFinishPct", "BlueRecentFinishPct", "RecentFinishPctDif",
+    "RedRecentFightTime", "BlueRecentFightTime", "RecentFightTimeDif", "IsTitleBout",
+    "NumberOfRounds", "IsFiveRoundBout", "IsMaleBout", "IsFlyweight", "IsBantamweight",
+    "IsFeatherweight", "IsLightweight", "IsWelterweight", "IsMiddleweight",
+    "IsLightHeavyweight", "IsHeavyweight", "IsStrawweight", "IsCatchweight", "IsOpenweight",
+    "RedOrthodox", "BlueOrthodox", "RedSouthpaw", "BlueSouthpaw", "RedSwitch", "BlueSwitch",
+    "SameStance", "OppositeStance",
 ]
 
 _NUMERIC = {
@@ -68,8 +84,41 @@ def _new_state():
         "losses_ko": 0, "losses_sub": 0, "losses_dec": 0, "streak": 0,
         "finish_history": [], "elo": 1500.0, "opponent_elos": [],
         "time_minutes": 0.0, "sig_landed": 0.0, "sig_attempted": 0.0,
-        "td_landed": 0.0, "sub_att": 0.0, "sig_absorbed": 0.0,
-        "total_rounds": 0.0,
+        "td_landed": 0.0, "td_attempted": 0.0, "td_landed_against": 0.0,
+        "td_attempted_against": 0.0, "sub_att": 0.0, "sig_absorbed": 0.0,
+        "sig_attempted_against": 0.0, "total_rounds": 0.0, "fights": 0,
+        "last_fight_date": None, "history": [],
+    }
+
+
+def _ratio(numerator, denominator, default=0.0):
+    return numerator / denominator if denominator else default
+
+
+def _recent_snapshot(state, window=5):
+    history = state["history"][-window:]
+    if not history:
+        return {
+            "RecentWinPct": 0.0, "RecentSigStrLanded": 0.0,
+            "RecentSigStrPct": 0.0, "RecentTDLanded": 0.0,
+            "RecentTDDefense": 0.5, "RecentSubAtt": 0.0,
+            "RecentFinishPct": 0.0, "RecentFightTime": 0.0,
+        }
+    time = sum(item["time_minutes"] for item in history)
+    sig_landed = sum(item["sig_landed"] for item in history)
+    sig_attempted = sum(item["sig_attempted"] for item in history)
+    td_landed = sum(item["td_landed"] for item in history)
+    td_attempted_against = sum(item["td_attempted_against"] for item in history)
+    td_against = sum(item["td_landed_against"] for item in history)
+    return {
+        "RecentWinPct": sum(item["win"] for item in history) / len(history),
+        "RecentSigStrLanded": _ratio(sig_landed, time),
+        "RecentSigStrPct": _ratio(sig_landed, sig_attempted),
+        "RecentTDLanded": _ratio(td_landed, time) * 15 if time else 0.0,
+        "RecentTDDefense": 1.0 - _ratio(td_against, td_attempted_against, 0.5),
+        "RecentSubAtt": _ratio(sum(item["sub_att"] for item in history), time) * 15 if time else 0.0,
+        "RecentFinishPct": sum(item["finish"] for item in history) / len(history),
+        "RecentFightTime": time / len(history),
     }
 
 
@@ -77,7 +126,7 @@ def _snapshot(state):
     bouts = state["wins"] + state["losses"]
     wins = max(state["wins"], 1)
     time = state["time_minutes"]
-    return {
+    snapshot = {
         "Wins": state["wins"],
         "Losses": state["losses"],
         "WinsByKO": state["wins_ko"],
@@ -102,11 +151,57 @@ def _snapshot(state):
         "FinishL5": (sum(state["finish_history"][-5:]) * 5 / len(state["finish_history"]))
         if 0 < len(state["finish_history"]) < 5 else sum(state["finish_history"][-5:]),
         "TotalRoundsFought": int(state["total_rounds"]),
+        "Experience": state["fights"],
+        "TDAccuracy": _ratio(state["td_landed"], state["td_attempted"]),
+        "TDDefense": 1.0 - _ratio(state["td_landed_against"], state["td_attempted_against"], 0.5),
+        "SigStrDefense": 1.0 - _ratio(state["sig_absorbed"], state["sig_attempted_against"], 0.5),
+        "AvgTDAttempted": _ratio(state["td_attempted"], time) * 15 if time else 0.0,
+        "LastFightDate": state["last_fight_date"],
     }
+    snapshot.update(_recent_snapshot(state))
+    return snapshot
 
 
 def _row_value(row, column, default=0.0):
     return _number(row.get(column), default)
+
+
+def _days_since(last_date, event_date):
+    if last_date is None or event_date is None:
+        return 0.0
+    return float(max((event_date - last_date).days, 0))
+
+
+def _flag(value):
+    if isinstance(value, bool):
+        return 1.0 if value else 0.0
+    return 1.0 if str(value or "").strip().lower() in {"true", "1", "yes", "y"} else 0.0
+
+
+def _weight_flags(value):
+    text = str(value or "").lower().replace("-", " ")
+    return {
+        "IsFlyweight": float("flyweight" in text and "light heavyweight" not in text),
+        "IsBantamweight": float("bantamweight" in text),
+        "IsFeatherweight": float("featherweight" in text),
+        "IsLightweight": float("lightweight" in text),
+        "IsWelterweight": float("welterweight" in text),
+        "IsMiddleweight": float("middleweight" in text and "light" not in text),
+        "IsLightHeavyweight": float("light heavyweight" in text),
+        "IsHeavyweight": float("heavyweight" in text and "light" not in text),
+        "IsStrawweight": float("strawweight" in text),
+        "IsCatchweight": float("catchweight" in text or "catch weight" in text),
+        "IsOpenweight": float("openweight" in text or "open weight" in text),
+    }
+
+
+def _stance_flags(value):
+    text = str(value or "").lower()
+    return {
+        "Orthodox": float("orthodox" in text),
+        "Southpaw": float("southpaw" in text),
+        "Switch": float("switch" in text),
+    }
 
 
 def _detail_complete(row):
@@ -126,21 +221,39 @@ def _apply_bout(state_by_fighter, row, pre_elos):
     kind = _finish_kind(row.get("Finish"))
 
     red_time = _row_value(row, "MatchFightTime") / 60.0
+    red_sig = _row_value(row, "RedMatchSigStr")
+    blue_sig = _row_value(row, "BlueMatchSigStr")
+    red_sig_attempted = _row_value(row, "RedMatchSigStrAttempted")
+    blue_sig_attempted = _row_value(row, "BlueMatchSigStrAttempted")
+    red_td = _row_value(row, "RedMatchTD")
+    blue_td = _row_value(row, "BlueMatchTD")
+    red_td_attempted = _row_value(row, "RedMatchTDAttempted")
+    blue_td_attempted = _row_value(row, "BlueMatchTDAttempted")
+    red_sub = _row_value(row, "RedMatchSubAtt")
+    blue_sub = _row_value(row, "BlueMatchSubAtt")
+    red["fights"] += 1
+    blue["fights"] += 1
+    red["sig_landed"] += red_sig
+    blue["sig_landed"] += blue_sig
+    red["sig_attempted"] += red_sig_attempted
+    blue["sig_attempted"] += blue_sig_attempted
+    red["td_landed"] += red_td
+    blue["td_landed"] += blue_td
+    red["td_attempted"] += red_td_attempted
+    blue["td_attempted"] += blue_td_attempted
+    red["td_landed_against"] += blue_td
+    blue["td_landed_against"] += red_td
+    red["td_attempted_against"] += blue_td_attempted
+    blue["td_attempted_against"] += red_td_attempted
+    red["sub_att"] += red_sub
+    blue["sub_att"] += blue_sub
+    red["sig_absorbed"] += blue_sig
+    blue["sig_absorbed"] += red_sig
+    red["sig_attempted_against"] += blue_sig_attempted
+    blue["sig_attempted_against"] += red_sig_attempted
     if red_time > 0:
-        red_sig = _row_value(row, "RedMatchSigStr")
-        blue_sig = _row_value(row, "BlueMatchSigStr")
         red["time_minutes"] += red_time
         blue["time_minutes"] += red_time
-        red["sig_landed"] += red_sig
-        blue["sig_landed"] += blue_sig
-        red["sig_attempted"] += _row_value(row, "RedMatchSigStrAttempted")
-        blue["sig_attempted"] += _row_value(row, "BlueMatchSigStrAttempted")
-        red["td_landed"] += _row_value(row, "RedMatchTD")
-        blue["td_landed"] += _row_value(row, "BlueMatchTD")
-        red["sub_att"] += _row_value(row, "RedMatchSubAtt")
-        blue["sub_att"] += _row_value(row, "BlueMatchSubAtt")
-        red["sig_absorbed"] += blue_sig
-        blue["sig_absorbed"] += red_sig
 
     rounds = _row_value(row, "FinishRound")
     if rounds > 0:
@@ -149,6 +262,27 @@ def _apply_bout(state_by_fighter, row, pre_elos):
 
     red["opponent_elos"].append(pre_elos[blue_name])
     blue["opponent_elos"].append(pre_elos[red_name])
+
+    event_date = row.get("_event_date")
+    if event_date is not None:
+        event_date = pd.Timestamp(event_date).date()
+    red["last_fight_date"] = event_date
+    blue["last_fight_date"] = event_date
+
+    red["history"].append({
+        "win": int(winner == "Red"), "finish": int(winner == "Red" and kind in {"ko", "sub"}),
+        "sig_landed": red_sig, "sig_attempted": red_sig_attempted,
+        "td_landed": red_td, "td_attempted": red_td_attempted,
+        "td_landed_against": blue_td, "td_attempted_against": blue_td_attempted,
+        "sub_att": red_sub, "time_minutes": red_time,
+    })
+    blue["history"].append({
+        "win": int(winner == "Blue"), "finish": int(winner == "Blue" and kind in {"ko", "sub"}),
+        "sig_landed": blue_sig, "sig_attempted": blue_sig_attempted,
+        "td_landed": blue_td, "td_attempted": blue_td_attempted,
+        "td_landed_against": red_td, "td_attempted_against": red_td_attempted,
+        "sub_att": blue_sub, "time_minutes": red_time,
+    })
 
     if winner not in {"Red", "Blue"}:
         return
@@ -221,6 +355,53 @@ def _populate_features(out, row, red, blue):
     out["FinishL5Dif"] = red["FinishL5"] - blue["FinishL5"]
     out["FinishPctDif"] = (red["KoPct"] + red["SubPct"]) - (blue["KoPct"] + blue["SubPct"])
     out["RedWeightLbs"] = _row_value(row, "RedWeightLbs")
+    out["BlueWeightLbs"] = _row_value(row, "BlueWeightLbs")
+    out["WeightLbsDif"] = out["RedWeightLbs"] - out["BlueWeightLbs"]
+
+    event_date = pd.Timestamp(row["_event_date"]).date()
+    red_days = _days_since(red["LastFightDate"], event_date)
+    blue_days = _days_since(blue["LastFightDate"], event_date)
+    out["RedDaysSinceLastFight"] = red_days
+    out["BlueDaysSinceLastFight"] = blue_days
+    out["DaysSinceLastFightDif"] = red_days - blue_days
+
+    for name, key in [
+        ("Experience", "Experience"), ("TDAccuracy", "TDAccuracy"),
+        ("TDDefense", "TDDefense"), ("SigStrDefense", "SigStrDefense"),
+        ("AvgTDAttempted", "AvgTDAttempted"), ("RecentWinPct", "RecentWinPct"),
+        ("RecentSigStrLanded", "RecentSigStrLanded"), ("RecentSigStrPct", "RecentSigStrPct"),
+        ("RecentTDLanded", "RecentTDLanded"), ("RecentTDDefense", "RecentTDDefense"),
+        ("RecentSubAtt", "RecentSubAtt"), ("RecentFinishPct", "RecentFinishPct"),
+        ("RecentFightTime", "RecentFightTime"),
+    ]:
+        out[f"Red{name}"] = red[key]
+        out[f"Blue{name}"] = blue[key]
+        diff_name = {
+            "AvgTDAttempted": "TDAttemptedDif",
+            "RecentSigStrLanded": "RecentSigStrDif",
+        }.get(name, f"{name}Dif")
+        out[diff_name] = red[key] - blue[key]
+
+    out["IsTitleBout"] = _flag(row.get("TitleBout"))
+    default_rounds = 5.0 if out["IsTitleBout"] else 3.0
+    rounds = _row_value(row, "NumberOfRounds", default_rounds) or default_rounds
+    out["NumberOfRounds"] = rounds
+    out["IsFiveRoundBout"] = float(rounds >= 5)
+    out["IsMaleBout"] = float(str(row.get("Gender") or "").strip().upper() == "MALE")
+    out.update(_weight_flags(row.get("WeightClass")))
+
+    red_stance = _stance_flags(row.get("RedStance"))
+    blue_stance = _stance_flags(row.get("BlueStance"))
+    for stance in ("Orthodox", "Southpaw", "Switch"):
+        out[f"Red{stance}"] = red_stance[stance]
+        out[f"Blue{stance}"] = blue_stance[stance]
+    out["SameStance"] = float(
+        any(red_stance[s] and blue_stance[s] for s in ("Orthodox", "Southpaw", "Switch"))
+    )
+    out["OppositeStance"] = float(
+        (red_stance["Orthodox"] and blue_stance["Southpaw"])
+        or (red_stance["Southpaw"] and blue_stance["Orthodox"])
+    )
 
     winner = str(row.get("Winner") or "").strip()
     kind = _finish_kind(row.get("Finish"))
@@ -318,6 +499,14 @@ def build_current_fighter_states(data, feature_frame=None, states=None):
                 "FinishL5": snap["FinishL5"], "LossesByKO": snap["LossesByKO"],
                 "LossesBySub": snap["LossesBySub"], "LossesByDec": snap["LossesByDec"],
                 "WinPct": snap["WinPct"], "TotalRoundsFought": snap["TotalRoundsFought"],
+                "Experience": snap["Experience"], "TDAccuracy": snap["TDAccuracy"],
+                "TDDefense": snap["TDDefense"], "SigStrDefense": snap["SigStrDefense"],
+                "AvgTDAttempted": snap["AvgTDAttempted"], "RecentWinPct": snap["RecentWinPct"],
+                "RecentSigStrLanded": snap["RecentSigStrLanded"],
+                "RecentSigStrPct": snap["RecentSigStrPct"], "RecentTDLanded": snap["RecentTDLanded"],
+                "RecentTDDefense": snap["RecentTDDefense"], "RecentSubAtt": snap["RecentSubAtt"],
+                "RecentFinishPct": snap["RecentFinishPct"], "RecentFightTime": snap["RecentFightTime"],
+                "LastFightDate": snap["LastFightDate"].isoformat() if snap["LastFightDate"] else None,
                 "WeightClass": row.get("WeightClass") or "Unknown", "Gender": row.get("Gender") or "UNKNOWN",
                 "FeatureVersion": FEATURE_VERSION,
                 "StateAsOfDate": row["_event_date"].date(),

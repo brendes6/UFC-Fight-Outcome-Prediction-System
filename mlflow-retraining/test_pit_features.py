@@ -1,6 +1,6 @@
 import pandas as pd
 
-from pit_features import build_current_fighter_states, build_point_in_time_features
+from pit_features import FINAL_FEATURES, build_current_fighter_states, build_point_in_time_features
 
 
 def bout(date, tag, red, blue, winner, finish, time=300):
@@ -79,3 +79,29 @@ def test_current_fighter_states_are_post_event_and_serveable():
     assert alpha["CurrentWinStreak"] == 1
     assert bravo["Losses"] == 1
     assert bravo["SigStrAbsorbed"] == 2
+
+
+def test_v2_features_are_point_in_time_and_contextual():
+    rows = [
+        bout("2024-01-01", "one", "Alpha", "Bravo", "Red", "KO/TKO"),
+        bout("2024-02-01", "two", "Alpha", "Charlie", "Blue", "DEC"),
+    ]
+    rows[0]["TitleBout"] = True
+    rows[0]["NumberOfRounds"] = 5
+    frame = build_point_in_time_features(pd.DataFrame(rows))
+    second = frame.iloc[1]
+
+    assert second["RedExperience"] == 1
+    assert second["BlueExperience"] == 0
+    assert second["RedDaysSinceLastFight"] == 31
+    assert second["BlueDaysSinceLastFight"] == 0
+    assert second["RedTDDefense"] == 1.0
+    assert second["IsFiveRoundBout"] == 0.0
+
+    first = frame.iloc[0]
+    assert first["IsTitleBout"] == 1.0
+    assert first["NumberOfRounds"] == 5.0
+    assert first["IsFiveRoundBout"] == 1.0
+
+    missing = [feature for feature in FINAL_FEATURES if feature not in frame.columns]
+    assert not missing

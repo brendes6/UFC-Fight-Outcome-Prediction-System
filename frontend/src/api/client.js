@@ -31,15 +31,31 @@ export async function getRoot() {
   }
 }
 
-export async function getPredictions(redFighter, blueFighter) {
+export async function getPredictions(redFighter, blueFighter, options = {}) {
   try {
+    const body = {
+      red_fighter: normalizeFighterTag(redFighter),
+      blue_fighter: normalizeFighterTag(blueFighter),
+    };
+
+    // Matchup context is optional so existing callers can keep using the
+    // simple two-fighter flow. Only send fields the user actually supplied.
+    const optionalFields = {
+      event_date: options.eventDate,
+      title_bout: options.titleBout,
+      number_of_rounds: options.numberOfRounds,
+      weight_class: options.weightClass,
+    };
+    for (const [key, value] of Object.entries(optionalFields)) {
+      if (value !== undefined && value !== null && value !== '') {
+        body[key] = value;
+      }
+    }
+
     return await requestJson('/predict', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        red_fighter: normalizeFighterTag(redFighter),
-        blue_fighter: normalizeFighterTag(blueFighter),
-      }),
+      body: JSON.stringify(body),
     });
   } catch (error) {
     console.error('Error fetching prediction:', error);

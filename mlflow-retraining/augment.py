@@ -9,19 +9,7 @@ train on both.
 """
 
 import numpy as np
-
-# Canonical feature order. This is the contract shared with the Go inference
-# backend (see backend/main.go `finalFeatures`) and the scaler metadata.
-FINAL_FEATURES = [
-    "RedWinPct", "BlueWinPct", "WinPctDif", "RedKoPct", "BlueKoPct", "KoPctDif",
-    "RedSubPct", "BlueSubPct", "SubPctDif", "RedDecPct", "BlueDecPct", "DecPctDif", "RedLossesByKO", "BlueLossesByKO", "LossesByKODif",
-    "RedLossesBySub", "BlueLossesBySub", "LossesBySubDif", "RedLossesByDec", "BlueLossesByDec", "LossesByDecDif", "RedWeightLbs",
-    "HeightDif", "ReachDif", "AgeDif", "RedAge", "BlueAge", "SigStrDif", "StrPctDif", "TDDif", "SubAttDif",
-    "RedAvgSigStrLanded", "BlueAvgSigStrLanded", "RedAvgTDLanded", "BlueAvgTDLanded", "RedAvgSigStrPct", "BlueAvgSigStrPct",
-    "RedAvgSubAtt", "BlueAvgSubAtt", "SigStrAbsorbedDif", "RedSigStrAbsorbed", "BlueSigStrAbsorbed", "AvgRoundsDif",
-    "RedAvgRounds", "BlueAvgRounds", "EloDif", "OpponentEloDif", "RedElo", "BlueElo", "WinStreakDif",
-    "RedCurrentWinStreak", "BlueCurrentWinStreak", "RedFinishL5", "BlueFinishL5", "FinishL5Dif", "FinishPctDif",
-]
+from pit_features import FINAL_FEATURES
 
 # Label mapping when corners swap:
 # RedKO(0)<->BlueKO(3), RedSub(1)<->BlueSub(4), RedDec(2)<->BlueDec(5)

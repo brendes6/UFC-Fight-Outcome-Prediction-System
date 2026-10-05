@@ -3,6 +3,7 @@ package main
 import (
 	"math"
 	"testing"
+	"time"
 )
 
 // identityMeta returns scaler metadata that leaves raw feature values unchanged
@@ -15,6 +16,35 @@ func identityMeta() *ScalerMetadata {
 		stds[f] = 1
 	}
 	return &ScalerMetadata{FeatureVersion: featureVersion, Means: means, Stds: stds, SavedOrder: finalFeatures}
+}
+
+func TestCalculateFeaturesV2Context(t *testing.T) {
+	red := &Fighter{
+		WeightLbs: 155, WeightClass: "Lightweight Bout", Stance: "Orthodox",
+		LastFightDate: "2024-01-01", Gender: "MALE",
+	}
+	blue := &Fighter{
+		WeightLbs: 156, WeightClass: "Lightweight Bout", Stance: "Southpaw",
+		LastFightDate: "2024-02-01", Gender: "MALE",
+	}
+	meta := identityMeta()
+	feats := calculateFeaturesAt(red, blue, meta, time.Date(2024, 3, 1, 0, 0, 0, 0, time.UTC), BoutContext{
+		TitleBout:      true,
+		NumberOfRounds: 5,
+		WeightClass:    "Lightweight Bout",
+	})
+
+	checks := map[string]float64{
+		"RedWeightLbs": 155, "BlueWeightLbs": 156, "WeightLbsDif": -1,
+		"RedDaysSinceLastFight": 60, "BlueDaysSinceLastFight": 29,
+		"IsTitleBout": 1, "NumberOfRounds": 5, "IsFiveRoundBout": 1,
+		"IsLightweight": 1, "OppositeStance": 1, "IsMaleBout": 1,
+	}
+	for name, want := range checks {
+		if got := featureValue(t, feats, name); math.Abs(got-want) > 1e-5 {
+			t.Errorf("%s: want %v, got %v", name, want, got)
+		}
+	}
 }
 
 func featureValue(t *testing.T, feats []float32, name string) float64 {

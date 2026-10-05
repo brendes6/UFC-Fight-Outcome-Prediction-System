@@ -10,7 +10,7 @@ from datetime import date
 is_upcoming = False
 is_most_recent = True
 import time
-from scrape_util import get_text_helper
+from scrape_util import get_text_helper, normalize_fighter_tag, parse_height_cm
 from fight_detail_stats import parse_fight_detail_stats
 
 
@@ -683,14 +683,7 @@ def scrape_previous_fights():
                     stance_list.append(isolate_stat)
                 if s_count == 0:
                     #Height
-                    isolate_stat = isolate_stat.replace("'", "")
-                    isolate_stat = isolate_stat.replace('"', '')
-                    height_tuple = isolate_stat.split(" ")
-                    if isolate_stat == ('--'):
-                        total_inches = 0
-                    else:
-                        total_inches = int(height_tuple[0])*12 + int(height_tuple[1])
-                    height_in_cm = total_inches * 2.54
+                    height_in_cm = parse_height_cm(isolate_stat)
                     height_list.append(height_in_cm)
                 if s_count == 2:
                     #Reach
@@ -757,11 +750,7 @@ def scrape_previous_fights():
                     #Stance
                     red_stance_list.append(isolate_stat)
                 if s_count == 0:
-                    isolate_stat = isolate_stat.replace("'", "")
-                    isolate_stat = isolate_stat.replace('"', '')
-                    height_tuple = isolate_stat.split(" ")
-                    total_inches = int(height_tuple[0])*12 + int(height_tuple[1])
-                    height_in_cm = total_inches * 2.54
+                    height_in_cm = parse_height_cm(isolate_stat)
 
                     red_height_list.append(height_in_cm)
                 if s_count == 2:
@@ -932,8 +921,8 @@ def scrape_previous_fights():
     df["Result"] = 0
 
     for i, row in df.iterrows():
-        red_tag = "_".join(df.at[i, "RedFighter"].lower().replace("-", " ").split())
-        blue_tag = "_".join(df.at[i, "BlueFighter"].lower().replace("-", " ").split())
+        red_tag = normalize_fighter_tag(df.at[i, "RedFighter"])
+        blue_tag = normalize_fighter_tag(df.at[i, "BlueFighter"])
 
         df.at[i, "FightTag"] = months[str(int(date[0]))] + "_" + date[1] + "_" + date[2][2:] + "_" + red_tag + "_" + blue_tag
 
@@ -1054,20 +1043,10 @@ def scrape_upcoming_fights():
             if row["class"][0] == "b-link" and row.get('href', None):
                 if i % 2 == 0:
                     red_fighters.append(row.text.strip())
-                    red_tag = row.text.replace("-", " ").lower().split()
-                    if red_tag[-1] in ["jr", "sr", "jr.", "sr."]:
-                        red_tag = "_".join(red_tag[:-1])
-                    else:
-                        red_tag = "_".join(red_tag)
-                    red_tags.append(red_tag)
+                    red_tags.append(normalize_fighter_tag(row.text))
                 else:
                     blue_fighters.append(row.text.strip())
-                    blue_tag = row.text.replace("-", " ").lower().split()
-                    if blue_tag[-1] in ["jr", "sr", "jr.", "sr."]:
-                        blue_tag = "_".join(blue_tag[:-1])
-                    else:
-                        blue_tag = "_".join(blue_tag)
-                    blue_tags.append(blue_tag)
+                    blue_tags.append(normalize_fighter_tag(row.text))
                 i += 1
 
     df = pd.DataFrame(columns=["RedFighter", "BlueFighter"])
@@ -1077,11 +1056,47 @@ def scrape_upcoming_fights():
     df["red_tag"] = red_tags
     df["blue_tag"] = blue_tags
 
+    # The event-detail table exposes the same matchup context as completed
+    # events. Keep it with each upcoming row so pit-v2 sees title/round/division
+    # context at serving time instead of silently defaulting every bout to a
+    # non-title three-round fight.
+    context_cells = bs.find_all(
+        "td", {"class": "b-fight-details__table-col l-page_align_left"}
+    )
+    weight_classes = []
+    for index, cell in enumerate(context_cells):
+        if index % 3 == 1:
+            texts = cell.find_all("p")
+            weight_classes.append(texts[0].get_text(strip=True) if texts else "Unknown")
+
+    title_bouts = []
+    fight_rows = bs.find_all("tr", {"class": "b-fight-details__table-row"})
+    for index, fight_row in enumerate(fight_rows):
+        if index == 0:
+            continue
+        title_bouts.append("belt.png" in str(fight_row))
+
+    count = len(df)
+    if len(weight_classes) != count:
+        weight_classes = (weight_classes + ["Unknown"] * count)[:count]
+    if len(title_bouts) != count:
+        title_bouts = (title_bouts + [False] * count)[:count]
+    df["WeightClass"] = weight_classes
+    df["TitleBout"] = title_bouts
+    # UFCStats cards are five rounds for title bouts and the main event, and
+    # three rounds otherwise. This mirrors the historical scraper's context.
+    df["NumberOfRounds"] = [
+        5 if title_bouts[index] or index == 0 else 3 for index in range(count)
+    ]
+
 
     return df, key
 
 
-def predict_fight(red_tag, blue_tag):
+def predict_fight(
+    red_tag, blue_tag, event_date=None, title_bout=False,
+    number_of_rounds=3, weight_class=None
+):
     # Predict a fight between two fighters
 
     time.sleep(1)
@@ -1090,11 +1105,24 @@ def predict_fight(red_tag, blue_tag):
         "red_fighter": red_tag,
         "blue_fighter": blue_tag
     }
+    if event_date:
+        payload["event_date"] = event_date
+    payload["title_bout"] = bool(title_bout)
+    payload["number_of_rounds"] = int(number_of_rounds or 3)
+    if weight_class:
+        payload["weight_class"] = weight_class
 
     response = requests.post("https://ufc-predictions-685306641609.us-central1.run.app/predict", json=payload)
     response.raise_for_status()
 
     return response.json()
+
+
+def _event_date_iso(date_key):
+    try:
+        return datetime.strptime(date_key, "%b_%d_%y").date().isoformat()
+    except (TypeError, ValueError):
+        return None
 
 
 def predict_upcoming_fights(upcoming_df, date_key):
@@ -1123,7 +1151,11 @@ def predict_upcoming_fights(upcoming_df, date_key):
     # Predict each matchup
     for i, row in upcoming_df.iterrows():
         try:
-            results = predict_fight(row["red_tag"], row["blue_tag"])
+            results = predict_fight(
+                row["red_tag"], row["blue_tag"], _event_date_iso(date_key),
+                row.get("TitleBout", False), row.get("NumberOfRounds", 3),
+                row.get("WeightClass"),
+            )
             data["fight_id"].append(f"{date_key}_{row['red_tag']}_{row['blue_tag']}")
             data["fight_number"].append(i + 1)
             data["red_fighter"].append(row["RedFighter"])
@@ -1166,6 +1198,12 @@ def update_prev_predictions(event_df):
         if fight_id:
             match = event_df[event_df["FightTag"] == fight_id]
 
+            # Older upcoming predictions stripped Jr/Sr suffixes while the
+            # completed-event tag retained them. Match by the stored red/blue
+            # fighter tags as a compatibility fallback for those documents.
+            if match.empty:
+                match = _match_event_by_fighters(event_df, data)
+
             if not match.empty:
                 print(f"Found matching fight: {fight_id}")
                 actual_result = match.iloc[0]
@@ -1179,6 +1217,51 @@ def update_prev_predictions(event_df):
 
     print("Previous predictions updated\n\n")
 
+
+def _tag_without_jr_sr(tag):
+    normalized = normalize_fighter_tag(str(tag or "").replace("_", " "))
+    parts = normalized.split("_")
+    if parts and parts[-1].rstrip(".") in {"jr", "sr"}:
+        return "_".join(parts[:-1])
+    return normalized
+
+
+def _match_event_by_fighters(event_df, prediction):
+    """Match a prediction to a completed bout using its fighter pair."""
+    red_tag = prediction.get("red_tag")
+    blue_tag = prediction.get("blue_tag")
+    if not red_tag or not blue_tag:
+        return event_df.iloc[0:0]
+    if "RedFighter" not in event_df.columns or "BlueFighter" not in event_df.columns:
+        return event_df.iloc[0:0]
+
+    wanted_red = _tag_without_jr_sr(red_tag)
+    wanted_blue = _tag_without_jr_sr(blue_tag)
+    red_matches = event_df["RedFighter"].map(_tag_without_jr_sr) == wanted_red
+    blue_matches = event_df["BlueFighter"].map(_tag_without_jr_sr) == wanted_blue
+    return event_df[red_matches & blue_matches]
+
+
+def reconcile_upcoming_predictions(upcoming_df, date_key):
+    """Remove predictions for bouts no longer present on the upcoming card."""
+    if upcoming_df is None or upcoming_df.empty or not date_key:
+        print("Skipping upcoming prediction reconciliation: no current card")
+        return
+
+    expected_ids = {
+        f"{date_key}_{row['red_tag']}_{row['blue_tag']}"
+        for _, row in upcoming_df.iterrows()
+    }
+    if not expected_ids:
+        print("Skipping upcoming prediction reconciliation: no fight IDs")
+        return
+
+    for doc_id, data in db.read_json_docs("upcoming"):
+        fight_id = data.get("fight_id")
+        if fight_id and fight_id not in expected_ids:
+            db.delete_doc("upcoming", doc_id)
+            print(f"Removed stale/cancelled upcoming prediction: {fight_id}")
+
 if __name__ == "__main__":
 
     event_df = scrape_previous_fights()
@@ -1187,3 +1270,4 @@ if __name__ == "__main__":
 
     df, date_key = scrape_upcoming_fights()
     predict_upcoming_fights(df, date_key)
+    reconcile_upcoming_predictions(df, date_key)

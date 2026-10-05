@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -24,7 +25,7 @@ import (
 
 const numModels = 2
 const gcsBucket = "ufc-proj-models"
-const featureVersion = "pit-v1"
+const featureVersion = "pit-v2"
 
 // Model file names: one neural network, one XGBoost (heterogeneous ensemble)
 var modelFiles = [numModels]string{"nn_model.onnx", "xgb_model.onnx"}
@@ -38,42 +39,72 @@ var finalFeatures = []string{
 	"RedAvgSubAtt", "BlueAvgSubAtt", "SigStrAbsorbedDif", "RedSigStrAbsorbed", "BlueSigStrAbsorbed", "AvgRoundsDif",
 	"RedAvgRounds", "BlueAvgRounds", "EloDif", "OpponentEloDif", "RedElo", "BlueElo", "WinStreakDif",
 	"RedCurrentWinStreak", "BlueCurrentWinStreak", "RedFinishL5", "BlueFinishL5", "FinishL5Dif", "FinishPctDif",
+	"BlueWeightLbs", "WeightLbsDif", "RedDaysSinceLastFight", "BlueDaysSinceLastFight",
+	"DaysSinceLastFightDif", "RedExperience", "BlueExperience", "ExperienceDif",
+	"RedTDAccuracy", "BlueTDAccuracy", "TDAccuracyDif", "RedTDDefense", "BlueTDDefense",
+	"TDDefenseDif", "RedSigStrDefense", "BlueSigStrDefense", "SigStrDefenseDif",
+	"RedAvgTDAttempted", "BlueAvgTDAttempted", "TDAttemptedDif", "RedRecentWinPct",
+	"BlueRecentWinPct", "RecentWinPctDif", "RedRecentSigStrLanded", "BlueRecentSigStrLanded",
+	"RecentSigStrDif", "RedRecentSigStrPct", "BlueRecentSigStrPct", "RecentSigStrPctDif",
+	"RedRecentTDLanded", "BlueRecentTDLanded", "RecentTDLandedDif", "RedRecentTDDefense",
+	"BlueRecentTDDefense", "RecentTDDefenseDif", "RedRecentSubAtt", "BlueRecentSubAtt",
+	"RecentSubAttDif", "RedRecentFinishPct", "BlueRecentFinishPct", "RecentFinishPctDif",
+	"RedRecentFightTime", "BlueRecentFightTime", "RecentFightTimeDif", "IsTitleBout",
+	"NumberOfRounds", "IsFiveRoundBout", "IsMaleBout", "IsFlyweight", "IsBantamweight",
+	"IsFeatherweight", "IsLightweight", "IsWelterweight", "IsMiddleweight",
+	"IsLightHeavyweight", "IsHeavyweight", "IsStrawweight", "IsCatchweight", "IsOpenweight",
+	"RedOrthodox", "BlueOrthodox", "RedSouthpaw", "BlueSouthpaw", "RedSwitch", "BlueSwitch",
+	"SameStance", "OppositeStance",
 }
 
 // Fighter struct - stores all basic fighter stats
 // used for eventual input tensor formatting
 type Fighter struct {
 	// db tags map struct fields to the fighters table columns
-	Wins              int     `db:"Wins"`
-	WinsByKO          int     `db:"WinsByKO"`
-	WinsBySubmission  int     `db:"WinsBySubmission"`
-	WinsByDecision    int     `db:"WinsByDecision"`
-	Losses            int     `db:"Losses"`
-	HeightCms         float64 `db:"HeightCms"`
-	ReachCms          float64 `db:"ReachCms"`
-	AvgSigStrLanded   float64 `db:"AvgSigStrLanded"`
-	AvgTDLanded       float64 `db:"AvgTDLanded"`
-	AvgSigStrPct      float64 `db:"AvgSigStrPct"`
-	AvgSubAtt         float64 `db:"AvgSubAtt"`
-	Stance            string  `db:"Stance"`
-	WeightLbs         int     `db:"WeightLbs"`
-	Age               int     `db:"Age"`
-	KoPct             float64 `db:"KoPct"`
-	SubPct            float64 `db:"SubPct"`
-	DecPct            float64 `db:"DecPct"`
-	AvgRounds         float64 `db:"AvgRounds"`
-	Elo               float64 `db:"Elo"`
-	OpponentElo       float64 `db:"OpponentElo"`
-	SigStrAbsorbed    float64 `db:"SigStrAbsorbed"`
-	CurrentWinStreak  int     `db:"CurrentWinStreak"`
-	FinishL5          float64 `db:"FinishL5"`
-	LossesByKO        int     `db:"LossesByKO"`
-	LossesBySub       int     `db:"LossesBySub"`
-	LossesByDec       int     `db:"LossesByDec"`
-	WinPct            float64 `db:"WinPct"`
-	TotalRoundsFought int     `db:"TotalRoundsFought"`
-	WeightClass       string  `db:"WeightClass"`
-	Gender            string  `db:"Gender"`
+	Wins               int     `db:"Wins"`
+	WinsByKO           int     `db:"WinsByKO"`
+	WinsBySubmission   int     `db:"WinsBySubmission"`
+	WinsByDecision     int     `db:"WinsByDecision"`
+	Losses             int     `db:"Losses"`
+	HeightCms          float64 `db:"HeightCms"`
+	ReachCms           float64 `db:"ReachCms"`
+	AvgSigStrLanded    float64 `db:"AvgSigStrLanded"`
+	AvgTDLanded        float64 `db:"AvgTDLanded"`
+	AvgSigStrPct       float64 `db:"AvgSigStrPct"`
+	AvgSubAtt          float64 `db:"AvgSubAtt"`
+	Stance             string  `db:"Stance"`
+	WeightLbs          int     `db:"WeightLbs"`
+	Age                int     `db:"Age"`
+	KoPct              float64 `db:"KoPct"`
+	SubPct             float64 `db:"SubPct"`
+	DecPct             float64 `db:"DecPct"`
+	AvgRounds          float64 `db:"AvgRounds"`
+	Elo                float64 `db:"Elo"`
+	OpponentElo        float64 `db:"OpponentElo"`
+	SigStrAbsorbed     float64 `db:"SigStrAbsorbed"`
+	CurrentWinStreak   int     `db:"CurrentWinStreak"`
+	FinishL5           float64 `db:"FinishL5"`
+	LossesByKO         int     `db:"LossesByKO"`
+	LossesBySub        int     `db:"LossesBySub"`
+	LossesByDec        int     `db:"LossesByDec"`
+	WinPct             float64 `db:"WinPct"`
+	TotalRoundsFought  int     `db:"TotalRoundsFought"`
+	WeightClass        string  `db:"WeightClass"`
+	Gender             string  `db:"Gender"`
+	Experience         int     `db:"Experience"`
+	TDAccuracy         float64 `db:"TDAccuracy"`
+	TDDefense          float64 `db:"TDDefense"`
+	SigStrDefense      float64 `db:"SigStrDefense"`
+	AvgTDAttempted     float64 `db:"AvgTDAttempted"`
+	RecentWinPct       float64 `db:"RecentWinPct"`
+	RecentSigStrLanded float64 `db:"RecentSigStrLanded"`
+	RecentSigStrPct    float64 `db:"RecentSigStrPct"`
+	RecentTDLanded     float64 `db:"RecentTDLanded"`
+	RecentTDDefense    float64 `db:"RecentTDDefense"`
+	RecentSubAtt       float64 `db:"RecentSubAtt"`
+	RecentFinishPct    float64 `db:"RecentFinishPct"`
+	RecentFightTime    float64 `db:"RecentFightTime"`
+	LastFightDate      string  `db:"LastFightDate"`
 }
 
 // Struct storing metadata of means/std's for
@@ -83,6 +114,7 @@ type ScalerMetadata struct {
 	Means          map[string]float64 `json:"means"`
 	Stds           map[string]float64 `json:"stds"`
 	SavedOrder     []string           `json:"saved_order"`
+	ServingVersion string             `json:"-"`
 }
 
 type rawScalerMetadata struct {
@@ -214,6 +246,25 @@ func loadScalerFromGCS(ctx context.Context) *ScalerMetadata {
 		panic(fmt.Sprintf("Failed to parse scaler JSON: %v", err))
 	}
 
+	// Include the serving artifact version in prediction cache keys. The model
+	// can be promoted without restarting this service, so feature version alone
+	// is not enough to invalidate cached matchup predictions.
+	if versionReader, versionErr := client.Bucket(gcsBucket).Object("production/version.json").NewReader(ctx); versionErr == nil {
+		defer versionReader.Close()
+		versionData, readErr := io.ReadAll(versionReader)
+		if readErr == nil {
+			var versionPayload struct {
+				Version int `json:"version"`
+			}
+			if json.Unmarshal(versionData, &versionPayload) == nil && versionPayload.Version > 0 {
+				meta.ServingVersion = fmt.Sprintf("%d", versionPayload.Version)
+			}
+		}
+	}
+	if meta.ServingVersion == "" {
+		meta.ServingVersion = "unknown"
+	}
+
 	slog.Info("loaded scaler from GCS", "features", len(meta.SavedOrder))
 	return meta
 }
@@ -271,7 +322,7 @@ type ModelSession struct {
 // Initialize a neural network ONNX model session
 // NN outputs raw logits as a single [1,6] tensor
 func initNNModel(modelPath string) (*ModelSession, error) {
-	inputTensor, err := ort.NewEmptyTensor[float32](ort.NewShape(1, 56))
+	inputTensor, err := ort.NewEmptyTensor[float32](ort.NewShape(1, int64(len(finalFeatures))))
 	if err != nil {
 		return nil, fmt.Errorf("create input tensor: %w", err)
 	}
@@ -298,7 +349,7 @@ func initNNModel(modelPath string) (*ModelSession, error) {
 // Initialize an XGBoost ONNX model session
 // XGBoost ONNX models output (labels int64, probabilities float32)
 func initXGBModel(modelPath string) (*ModelSession, error) {
-	inputTensor, err := ort.NewEmptyTensor[float32](ort.NewShape(1, 56))
+	inputTensor, err := ort.NewEmptyTensor[float32](ort.NewShape(1, int64(len(finalFeatures))))
 	if err != nil {
 		return nil, fmt.Errorf("create input tensor: %w", err)
 	}
@@ -454,67 +505,204 @@ func runEnsembleInference(sessions []*ModelSession, features []float32) ([]float
 	return averaged, nil
 }
 
-// Function to calculate features given our fighter data
+func daysSinceLastFight(lastDate string, asOf time.Time) float64 {
+	if strings.TrimSpace(lastDate) == "" {
+		return 0
+	}
+	parsed, err := time.Parse("2006-01-02", strings.TrimSpace(lastDate))
+	if err != nil {
+		return 0
+	}
+	current := time.Date(asOf.Year(), asOf.Month(), asOf.Day(), 0, 0, 0, 0, time.UTC)
+	last := time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, time.UTC)
+	days := current.Sub(last).Hours() / 24
+	if days < 0 {
+		return 0
+	}
+	return days
+}
+
+func stanceFlag(stance, wanted string) float64 {
+	return float64(boolToInt(strings.Contains(strings.ToLower(stance), strings.ToLower(wanted))))
+}
+
+func boolToInt(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
+}
+
+func weightContextFlags(weightClass string) map[string]float64 {
+	text := strings.ToLower(strings.ReplaceAll(weightClass, "-", " "))
+	return map[string]float64{
+		"IsFlyweight":        float64(boolToInt(strings.Contains(text, "flyweight") && !strings.Contains(text, "light heavyweight"))),
+		"IsBantamweight":     float64(boolToInt(strings.Contains(text, "bantamweight"))),
+		"IsFeatherweight":    float64(boolToInt(strings.Contains(text, "featherweight"))),
+		"IsLightweight":      float64(boolToInt(strings.Contains(text, "lightweight"))),
+		"IsWelterweight":     float64(boolToInt(strings.Contains(text, "welterweight"))),
+		"IsMiddleweight":     float64(boolToInt(strings.Contains(text, "middleweight") && !strings.Contains(text, "light"))),
+		"IsLightHeavyweight": float64(boolToInt(strings.Contains(text, "light heavyweight"))),
+		"IsHeavyweight":      float64(boolToInt(strings.Contains(text, "heavyweight") && !strings.Contains(text, "light"))),
+		"IsStrawweight":      float64(boolToInt(strings.Contains(text, "strawweight"))),
+		"IsCatchweight":      float64(boolToInt(strings.Contains(text, "catchweight") || strings.Contains(text, "catch weight"))),
+		"IsOpenweight":       float64(boolToInt(strings.Contains(text, "openweight") || strings.Contains(text, "open weight"))),
+	}
+}
+
+type BoutContext struct {
+	TitleBout      bool
+	NumberOfRounds float64
+	WeightClass    string
+}
+
+// Function to calculate features given our fighter data.
 func calculateFeatures(red, blue *Fighter, meta *ScalerMetadata) []float32 {
+	return calculateFeaturesAt(red, blue, meta, time.Now(), BoutContext{
+		WeightClass: red.WeightClass,
+	})
+}
+
+func calculateFeaturesAt(red, blue *Fighter, meta *ScalerMetadata, asOf time.Time, context BoutContext) []float32 {
 	features := make([]float32, len(meta.SavedOrder))
+	redDays := daysSinceLastFight(red.LastFightDate, asOf)
+	blueDays := daysSinceLastFight(blue.LastFightDate, asOf)
+	weightClass := context.WeightClass
+	if weightClass == "" {
+		weightClass = red.WeightClass
+	}
+	weightFlags := weightContextFlags(weightClass)
+	rounds := context.NumberOfRounds
+	if rounds <= 0 {
+		if context.TitleBout {
+			rounds = 5
+		} else {
+			rounds = 3
+		}
+	}
+	redOrthodox := stanceFlag(red.Stance, "orthodox")
+	blueOrthodox := stanceFlag(blue.Stance, "orthodox")
+	redSouthpaw := stanceFlag(red.Stance, "southpaw")
+	blueSouthpaw := stanceFlag(blue.Stance, "southpaw")
+	redSwitch := stanceFlag(red.Stance, "switch")
+	blueSwitch := stanceFlag(blue.Stance, "switch")
 
 	rawStats := map[string]float64{
-		"RedWinPct":            red.WinPct,
-		"BlueWinPct":           blue.WinPct,
-		"WinPctDif":            red.WinPct - blue.WinPct,
-		"RedKoPct":             red.KoPct,
-		"BlueKoPct":            blue.KoPct,
-		"KoPctDif":             red.KoPct - blue.KoPct,
-		"RedSubPct":            red.SubPct,
-		"BlueSubPct":           blue.SubPct,
-		"SubPctDif":            red.SubPct - blue.SubPct,
-		"RedDecPct":            red.DecPct,
-		"BlueDecPct":           blue.DecPct,
-		"DecPctDif":            red.DecPct - blue.DecPct,
-		"RedLossesByKO":        float64(red.LossesByKO),
-		"BlueLossesByKO":       float64(blue.LossesByKO),
-		"LossesByKODif":        float64(red.LossesByKO - blue.LossesByKO),
-		"RedLossesBySub":       float64(red.LossesBySub),
-		"BlueLossesBySub":      float64(blue.LossesBySub),
-		"LossesBySubDif":       float64(red.LossesBySub - blue.LossesBySub),
-		"RedLossesByDec":       float64(red.LossesByDec),
-		"BlueLossesByDec":      float64(blue.LossesByDec),
-		"LossesByDecDif":       float64(red.LossesByDec - blue.LossesByDec),
-		"RedWeightLbs":         float64(red.WeightLbs),
-		"HeightDif":            red.HeightCms - blue.HeightCms,
-		"ReachDif":             red.ReachCms - blue.ReachCms,
-		"AgeDif":               float64(red.Age - blue.Age),
-		"RedAge":               float64(red.Age),
-		"BlueAge":              float64(blue.Age),
-		"SigStrDif":            red.AvgSigStrLanded - blue.AvgSigStrLanded,
-		"StrPctDif":            red.AvgSigStrPct - blue.AvgSigStrPct,
-		"TDDif":                red.AvgTDLanded - blue.AvgTDLanded,
-		"SubAttDif":            red.AvgSubAtt - blue.AvgSubAtt,
-		"RedAvgSigStrLanded":   red.AvgSigStrLanded,
-		"BlueAvgSigStrLanded":  blue.AvgSigStrLanded,
-		"RedAvgTDLanded":       red.AvgTDLanded,
-		"BlueAvgTDLanded":      blue.AvgTDLanded,
-		"RedAvgSigStrPct":      red.AvgSigStrPct,
-		"BlueAvgSigStrPct":     blue.AvgSigStrPct,
-		"RedAvgSubAtt":         red.AvgSubAtt,
-		"BlueAvgSubAtt":        blue.AvgSubAtt,
-		"SigStrAbsorbedDif":    red.SigStrAbsorbed - blue.SigStrAbsorbed,
-		"RedSigStrAbsorbed":    red.SigStrAbsorbed,
-		"BlueSigStrAbsorbed":   blue.SigStrAbsorbed,
-		"AvgRoundsDif":         red.AvgRounds - blue.AvgRounds,
-		"RedAvgRounds":         red.AvgRounds,
-		"BlueAvgRounds":        blue.AvgRounds,
-		"EloDif":               red.Elo - blue.Elo,
-		"OpponentEloDif":       red.OpponentElo - blue.OpponentElo,
-		"RedElo":               red.Elo,
-		"BlueElo":              blue.Elo,
-		"WinStreakDif":         float64(red.CurrentWinStreak - blue.CurrentWinStreak),
-		"RedCurrentWinStreak":  float64(red.CurrentWinStreak),
-		"BlueCurrentWinStreak": float64(blue.CurrentWinStreak),
-		"RedFinishL5":          float64(red.FinishL5),
-		"BlueFinishL5":         float64(blue.FinishL5),
-		"FinishL5Dif":          float64(red.FinishL5 - blue.FinishL5),
-		"FinishPctDif":         (float64(red.WinsByKO+red.WinsBySubmission) / math.Max(float64(red.Wins), 1)) - (float64(blue.WinsByKO+blue.WinsBySubmission) / math.Max(float64(blue.Wins), 1)),
+		"RedWinPct":              red.WinPct,
+		"BlueWinPct":             blue.WinPct,
+		"WinPctDif":              red.WinPct - blue.WinPct,
+		"RedKoPct":               red.KoPct,
+		"BlueKoPct":              blue.KoPct,
+		"KoPctDif":               red.KoPct - blue.KoPct,
+		"RedSubPct":              red.SubPct,
+		"BlueSubPct":             blue.SubPct,
+		"SubPctDif":              red.SubPct - blue.SubPct,
+		"RedDecPct":              red.DecPct,
+		"BlueDecPct":             blue.DecPct,
+		"DecPctDif":              red.DecPct - blue.DecPct,
+		"RedLossesByKO":          float64(red.LossesByKO),
+		"BlueLossesByKO":         float64(blue.LossesByKO),
+		"LossesByKODif":          float64(red.LossesByKO - blue.LossesByKO),
+		"RedLossesBySub":         float64(red.LossesBySub),
+		"BlueLossesBySub":        float64(blue.LossesBySub),
+		"LossesBySubDif":         float64(red.LossesBySub - blue.LossesBySub),
+		"RedLossesByDec":         float64(red.LossesByDec),
+		"BlueLossesByDec":        float64(blue.LossesByDec),
+		"LossesByDecDif":         float64(red.LossesByDec - blue.LossesByDec),
+		"RedWeightLbs":           float64(red.WeightLbs),
+		"BlueWeightLbs":          float64(blue.WeightLbs),
+		"WeightLbsDif":           float64(red.WeightLbs - blue.WeightLbs),
+		"HeightDif":              red.HeightCms - blue.HeightCms,
+		"ReachDif":               red.ReachCms - blue.ReachCms,
+		"AgeDif":                 float64(red.Age - blue.Age),
+		"RedAge":                 float64(red.Age),
+		"BlueAge":                float64(blue.Age),
+		"SigStrDif":              red.AvgSigStrLanded - blue.AvgSigStrLanded,
+		"StrPctDif":              red.AvgSigStrPct - blue.AvgSigStrPct,
+		"TDDif":                  red.AvgTDLanded - blue.AvgTDLanded,
+		"SubAttDif":              red.AvgSubAtt - blue.AvgSubAtt,
+		"RedAvgSigStrLanded":     red.AvgSigStrLanded,
+		"BlueAvgSigStrLanded":    blue.AvgSigStrLanded,
+		"RedAvgTDLanded":         red.AvgTDLanded,
+		"BlueAvgTDLanded":        blue.AvgTDLanded,
+		"RedAvgSigStrPct":        red.AvgSigStrPct,
+		"BlueAvgSigStrPct":       blue.AvgSigStrPct,
+		"RedAvgSubAtt":           red.AvgSubAtt,
+		"BlueAvgSubAtt":          blue.AvgSubAtt,
+		"SigStrAbsorbedDif":      red.SigStrAbsorbed - blue.SigStrAbsorbed,
+		"RedSigStrAbsorbed":      red.SigStrAbsorbed,
+		"BlueSigStrAbsorbed":     blue.SigStrAbsorbed,
+		"AvgRoundsDif":           red.AvgRounds - blue.AvgRounds,
+		"RedAvgRounds":           red.AvgRounds,
+		"BlueAvgRounds":          blue.AvgRounds,
+		"EloDif":                 red.Elo - blue.Elo,
+		"OpponentEloDif":         red.OpponentElo - blue.OpponentElo,
+		"RedElo":                 red.Elo,
+		"BlueElo":                blue.Elo,
+		"WinStreakDif":           float64(red.CurrentWinStreak - blue.CurrentWinStreak),
+		"RedCurrentWinStreak":    float64(red.CurrentWinStreak),
+		"BlueCurrentWinStreak":   float64(blue.CurrentWinStreak),
+		"RedFinishL5":            float64(red.FinishL5),
+		"BlueFinishL5":           float64(blue.FinishL5),
+		"FinishL5Dif":            float64(red.FinishL5 - blue.FinishL5),
+		"FinishPctDif":           (float64(red.WinsByKO+red.WinsBySubmission) / math.Max(float64(red.Wins), 1)) - (float64(blue.WinsByKO+blue.WinsBySubmission) / math.Max(float64(blue.Wins), 1)),
+		"RedDaysSinceLastFight":  redDays,
+		"BlueDaysSinceLastFight": blueDays,
+		"DaysSinceLastFightDif":  redDays - blueDays,
+		"RedExperience":          float64(red.Experience),
+		"BlueExperience":         float64(blue.Experience),
+		"ExperienceDif":          float64(red.Experience - blue.Experience),
+		"RedTDAccuracy":          red.TDAccuracy,
+		"BlueTDAccuracy":         blue.TDAccuracy,
+		"TDAccuracyDif":          red.TDAccuracy - blue.TDAccuracy,
+		"RedTDDefense":           red.TDDefense,
+		"BlueTDDefense":          blue.TDDefense,
+		"TDDefenseDif":           red.TDDefense - blue.TDDefense,
+		"RedSigStrDefense":       red.SigStrDefense,
+		"BlueSigStrDefense":      blue.SigStrDefense,
+		"SigStrDefenseDif":       red.SigStrDefense - blue.SigStrDefense,
+		"RedAvgTDAttempted":      red.AvgTDAttempted,
+		"BlueAvgTDAttempted":     blue.AvgTDAttempted,
+		"TDAttemptedDif":         red.AvgTDAttempted - blue.AvgTDAttempted,
+		"RedRecentWinPct":        red.RecentWinPct,
+		"BlueRecentWinPct":       blue.RecentWinPct,
+		"RecentWinPctDif":        red.RecentWinPct - blue.RecentWinPct,
+		"RedRecentSigStrLanded":  red.RecentSigStrLanded,
+		"BlueRecentSigStrLanded": blue.RecentSigStrLanded,
+		"RecentSigStrDif":        red.RecentSigStrLanded - blue.RecentSigStrLanded,
+		"RedRecentSigStrPct":     red.RecentSigStrPct,
+		"BlueRecentSigStrPct":    blue.RecentSigStrPct,
+		"RecentSigStrPctDif":     red.RecentSigStrPct - blue.RecentSigStrPct,
+		"RedRecentTDLanded":      red.RecentTDLanded,
+		"BlueRecentTDLanded":     blue.RecentTDLanded,
+		"RecentTDLandedDif":      red.RecentTDLanded - blue.RecentTDLanded,
+		"RedRecentTDDefense":     red.RecentTDDefense,
+		"BlueRecentTDDefense":    blue.RecentTDDefense,
+		"RecentTDDefenseDif":     red.RecentTDDefense - blue.RecentTDDefense,
+		"RedRecentSubAtt":        red.RecentSubAtt,
+		"BlueRecentSubAtt":       blue.RecentSubAtt,
+		"RecentSubAttDif":        red.RecentSubAtt - blue.RecentSubAtt,
+		"RedRecentFinishPct":     red.RecentFinishPct,
+		"BlueRecentFinishPct":    blue.RecentFinishPct,
+		"RecentFinishPctDif":     red.RecentFinishPct - blue.RecentFinishPct,
+		"RedRecentFightTime":     red.RecentFightTime,
+		"BlueRecentFightTime":    blue.RecentFightTime,
+		"RecentFightTimeDif":     red.RecentFightTime - blue.RecentFightTime,
+		"IsTitleBout":            float64(boolToInt(context.TitleBout)),
+		"NumberOfRounds":         rounds,
+		"IsFiveRoundBout":        float64(boolToInt(rounds >= 5)),
+		"IsMaleBout":             float64(boolToInt(strings.EqualFold(red.Gender, "MALE") && strings.EqualFold(blue.Gender, "MALE"))),
+		"RedOrthodox":            redOrthodox,
+		"BlueOrthodox":           blueOrthodox,
+		"RedSouthpaw":            redSouthpaw,
+		"BlueSouthpaw":           blueSouthpaw,
+		"RedSwitch":              redSwitch,
+		"BlueSwitch":             blueSwitch,
+		"SameStance":             float64(boolToInt((redOrthodox == 1 && blueOrthodox == 1) || (redSouthpaw == 1 && blueSouthpaw == 1) || (redSwitch == 1 && blueSwitch == 1))),
+		"OppositeStance":         float64(boolToInt((redOrthodox == 1 && blueSouthpaw == 1) || (redSouthpaw == 1 && blueOrthodox == 1))),
+	}
+	for name, value := range weightFlags {
+		rawStats[name] = value
 	}
 
 	// From our metadata, calculate scaled values and add to our features slice
@@ -605,8 +793,12 @@ func main() {
 	router.POST("/predict", func(c *gin.Context) {
 		// Struct binding red and blue fighters from context
 		var req struct {
-			RedFighter  string `json:"red_fighter" binding:"required"`
-			BlueFighter string `json:"blue_fighter" binding:"required"`
+			RedFighter     string  `json:"red_fighter" binding:"required"`
+			BlueFighter    string  `json:"blue_fighter" binding:"required"`
+			EventDate      string  `json:"event_date"`
+			TitleBout      bool    `json:"title_bout"`
+			NumberOfRounds float64 `json:"number_of_rounds"`
+			WeightClass    string  `json:"weight_class"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -614,9 +806,16 @@ func main() {
 		}
 
 		ctx := c.Request.Context()
+		asOf := time.Now()
+		if req.EventDate != "" {
+			if parsed, err := time.Parse("2006-01-02", req.EventDate); err == nil {
+				asOf = parsed
+			}
+		}
+		cacheEventDate := asOf.Format("2006-01-02")
 
 		// Check if prediction is cached in Redis
-		cacheKey := fmt.Sprintf("%s:%s", req.RedFighter, req.BlueFighter)
+		cacheKey := fmt.Sprintf("%s:%s:%s:%s:%s:%t:%.0f:%s", featureVersion, scalerMeta.ServingVersion, cacheEventDate, req.RedFighter, req.BlueFighter, req.TitleBout, req.NumberOfRounds, req.WeightClass)
 		if cached, err := rdb.Get(ctx, cacheKey).Result(); err == nil {
 			var result PredictionResult
 			if json.Unmarshal([]byte(cached), &result) == nil {
@@ -651,7 +850,11 @@ func main() {
 		}
 
 		// Engineer and scale features using pre-loaded scaler from GCS
-		features := calculateFeatures(red, blue, scalerMeta)
+		features := calculateFeaturesAt(red, blue, scalerMeta, asOf, BoutContext{
+			TitleBout:      req.TitleBout,
+			NumberOfRounds: req.NumberOfRounds,
+			WeightClass:    req.WeightClass,
+		})
 
 		// Run ensemble inference: all models concurrently, then average
 		ensembleProbs, err := runEnsembleInference(onnxSessions, features)

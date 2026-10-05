@@ -35,6 +35,30 @@ test('getPredictions sends normalized fighter tags, preserving suffixes', async 
   assert.deepEqual(result, { prediction: 'red', probability: 0.61 });
 });
 
+test('getPredictions sends optional matchup context when supplied', async () => {
+  let capturedBody;
+  globalThis.fetch = async (_url, options) => {
+    capturedBody = JSON.parse(options.body);
+    return jsonResponse({ prediction: 'red', probability: 0.61 });
+  };
+
+  await getPredictions('Ilia Topuria', 'Justin Gaethje', {
+    eventDate: '2026-09-24',
+    titleBout: true,
+    numberOfRounds: 5,
+    weightClass: 'Lightweight',
+  });
+
+  assert.deepEqual(capturedBody, {
+    red_fighter: 'ilia_topuria',
+    blue_fighter: 'justin_gaethje',
+    event_date: '2026-09-24',
+    title_bout: true,
+    number_of_rounds: 5,
+    weight_class: 'Lightweight',
+  });
+});
+
 test('getPredictions returns null when the request fails', async () => {
   console.error = () => {};
   globalThis.fetch = async () => jsonResponse({ error: 'not found' }, { ok: false, status: 404 });

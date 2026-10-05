@@ -14,8 +14,8 @@ from augment import (
 
 
 def test_feature_schema_has_expected_size():
-    # The Go backend and scaler metadata both assume 56 features in this order.
-    assert len(FINAL_FEATURES) == 56
+    # The Go backend and scaler metadata both consume this versioned order.
+    assert len(FINAL_FEATURES) == 123
     assert len(set(FINAL_FEATURES)) == len(FINAL_FEATURES)  # no duplicates
 
 
@@ -99,3 +99,13 @@ def test_difference_feature_flips_sign_when_mirrored():
     X_aug, _ = swap_augment(X, y)
 
     assert X_aug[1, idx] == -0.42
+
+
+def test_v2_weight_features_are_corner_symmetric():
+    swap_order, negate_mask = build_swap_indices(FINAL_FEATURES)
+    for name in ("RedWeightLbs", "BlueWeightLbs"):
+        i = FINAL_FEATURES.index(name)
+        counterpart = "BlueWeightLbs" if name == "RedWeightLbs" else "RedWeightLbs"
+        assert FINAL_FEATURES[swap_order[i]] == counterpart
+        assert negate_mask[i] == 1.0
+    assert negate_mask[FINAL_FEATURES.index("WeightLbsDif")] == -1.0

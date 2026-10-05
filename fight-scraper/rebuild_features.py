@@ -11,9 +11,11 @@ def rebuild(apply=False):
     frame, fighters, legacy_tags = rebuild_canonical_state(apply=apply)
     eligible = int(frame["eligible"].sum()) if not frame.empty else 0
     detail = int(frame["raw_detail_complete"].sum()) if not frame.empty else 0
+    versions = sorted(frame["feature_version"].dropna().unique()) if not frame.empty else []
     print(
         f"bouts={len(frame)} eligible_labels={eligible} "
-        f"complete_detail={detail} fighters={len(fighters)}"
+        f"complete_detail={detail} fighters={len(fighters)} "
+        f"feature_versions={versions}"
     )
     if apply:
         print(

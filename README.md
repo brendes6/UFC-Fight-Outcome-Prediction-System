@@ -60,9 +60,10 @@ flowchart TB
 ## How a prediction works
 
 1. The frontend sends a red/blue fighter matchup to `POST /predict`.
-2. The API checks **Redis** for a cached result (matchups cached with a 6-hour TTL).
+2. The API checks **Redis** for a cached result (entries are namespaced by serving-model version and have a 6-hour TTL).
 3. On a miss, it fetches both fighters' stats from **PostgreSQL** concurrently (goroutines).
-4. It engineers **56 features** (differentials, Elo, momentum/finish streaks, rates, etc.) and
+4. It engineers **123 versioned point-in-time features** (differentials, Elo, recent form,
+   rest, defense rates, stance, division, title, and round context) and
    scales them with the production `StandardScaler` parameters loaded from GCS.
 5. The **NN and XGBoost models run concurrently** and their class probabilities are averaged.
 6. The result — win probability and most likely finish method (KO/TKO, submission, decision) —
